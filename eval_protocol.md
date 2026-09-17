@@ -57,11 +57,18 @@ Shadow-model attack (Shokri et al. style):
 **Threshold:** attack AUROC within 0.05 of 0.50 (i.e. 0.45–0.55) = good privacy (attacker is close to
 random guessing). AUROC ≥ 0.65 = fail (meaningful membership leakage).
 
-### Attribute inference (secondary, if time allows)
+### Attribute inference (implemented — `attribute_inference.py`)
 Given a partial record (subset of known attributes), attempt to reconstruct a withheld sensitive
-attribute (candidate: `ethnicity` or a specific lab value) better than the population base rate.
-Reported as attacker accuracy uplift over the base-rate guess, no hard threshold set yet — revisit
-once the membership-inference suite is working.
+attribute (`ethnicity`) better than the population base rate. Reported as attacker accuracy uplift
+over the base-rate guess (always predicting the majority class); no hard pass/fail threshold set yet.
+
+**Known data caveat found while testing:** on the current train/holdout split, `HISPANIC/LATINO -
+PUERTO RICAN` accounts for 15/35 (43%) of the holdout set but 0/94 of the train set — the
+patient-level 80/20 split happened to put every patient of that ethnicity into holdout. This isn't a
+bug in the attack code; it means the attacker (and any model trained on `train`) has literally never
+seen that class, so the current uplift reading of 0.0 reflects the split's small-sample gap for this
+feature, not the generator's actual privacy behavior. Flagged to Track 3 — worth a second look once
+real synthetic data is available, since the same gap will affect Track 1's generator training too.
 
 ## 5. Interface contract
 
