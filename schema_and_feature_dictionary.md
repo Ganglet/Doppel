@@ -78,7 +78,15 @@ This threshold (20) is a starting point — revisit with Track 1/2 once you see 
   generators (Track 1) should only ever see the train split.
 
 ## 8. Interface contract (output of this stage)
-Preprocessing outputs a single file: `mimic_demo_clean.csv`, one row per admission, columns as in §4,
-plus a `split` column (`train` / `holdout`). This is the file Track 1 trains generators on (train rows
-only) and Track 2 evaluates against (both splits). Confirm this contract with Track 1/2/4 before Phase 2
-starts.
+Preprocessing outputs three files in `output/`:
+- `mimic_demo_clean.csv` — one row per admission, columns as in §4, plus a `split` column
+  (`train` / `holdout`). This is the file Track 1 trains generators on (train rows only) and Track 2
+  evaluates against (both splits).
+- `lab_item_lookup.csv` — maps `lab_<ITEMID>_*` columns back to human-readable lab names.
+- `icd9_lookup.csv` — maps `icd9_code` values (in `icd9_primary` and `icd9_codes`) to short text
+  descriptions, sourced from `D_ICD_DIAGNOSES.csv`. Needed for the report and for readable model output.
+
+**`icd9_codes` format:** this column is a JSON-encoded list (e.g. `[4019, 2724]`), not a Python literal —
+parse it with `json.loads()`, not `ast.literal_eval()` or manual string parsing.
+
+Confirm this contract with Track 1/2/4 before Phase 2 starts.

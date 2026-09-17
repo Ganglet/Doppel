@@ -2,6 +2,7 @@
 Doppel — Track 3 (Data Engineering) preprocessing pipeline.
 """
 
+import json
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -20,9 +21,10 @@ def load_raw():
     admissions = pd.read_csv(RAW_DIR / "ADMISSIONS.csv", parse_dates=["admittime", "dischtime"])
     icustays = pd.read_csv(RAW_DIR / "ICUSTAYS.csv")
     diagnoses = pd.read_csv(RAW_DIR / "DIAGNOSES_ICD.csv")
+    d_icd_diagnoses = pd.read_csv(RAW_DIR / "D_ICD_DIAGNOSES.csv")
     labevents = pd.read_csv(RAW_DIR / "LABEVENTS.csv")
     d_labitems = pd.read_csv(RAW_DIR / "D_LABITEMS.csv")
-    return patients, admissions, icustays, diagnoses, labevents, d_labitems
+    return patients, admissions, icustays, diagnoses, d_icd_diagnoses, labevents, d_labitems
 
 
 def compute_age(patients, admissions):
@@ -81,7 +83,8 @@ def build_diagnoses_features(diagnoses):
 
     code_lists = (
         diagnoses_sorted.groupby(["subject_id", "hadm_id"])["icd9_code"]
-        .apply(list).rename("icd9_codes").reset_index()
+        .apply(lambda codes: json.dumps(list(codes)))
+        .rename("icd9_codes").reset_index()
     )
 
     out = primary.merge(n_dx, on=["subject_id", "hadm_id"], how="outer")
@@ -138,7 +141,7 @@ def make_split(subject_ids, train_frac=TRAIN_FRAC, seed=RANDOM_SEED):
 
 
 def main():
-    patients, admissions, icustays, diagnoses, labevents, d_labitems = load_raw()
+    patients, admissions, icustays, diagnoses, d_icd_diagnoses, labevents, d_labitems = load_raw()
 
     age_df = compute_age(patients, admissions)
     base = build_admission_base(admissions, icustays)
@@ -168,9 +171,13 @@ def main():
         lookup_path, index=False
     )
 
+    icd9_lookup_path = OUT_DIR / "icd9_lookup.csv"
+    d_icd_diagnoses[["icd9_code", "short_title"]].to_csv(icd9_lookup_path, index=False)
+
     print(f"Wrote {len(df)} admission rows, {df.shape[1]} columns -> {out_path}")
     print(f"Train/holdout split: {df['split'].value_counts().to_dict()}")
     print(f"Lab item lookup -> {lookup_path}")
+    print(f"ICD-9 description lookup -> {icd9_lookup_path}")
 
 
 if __name__ == "__main__":
