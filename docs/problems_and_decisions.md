@@ -1,0 +1,98 @@
+# Problems & Decisions Log
+
+One running file for Project Doppel. Never split, never rewritten — only appended to.
+ADRs and Problems are numbered independently and sequentially, oldest first.
+
+---
+
+## Architecture Decisions
+
+### ADR-001 — Split train/holdout by `subject_id`, not `hadm_id`
+**Decision:** The 80/20 train/holdout split is done at the patient level (`subject_id`), then all of a patient's admissions inherit that split.
+**Why:** A single patient can have multiple admissions (`hadm_id`). Splitting at the admission level would let the same patient appear in both train and holdout, leaking patient-specific signal into the "held-out" evaluation.
+**Impact:** Track 1's generators only ever train on `train`-split admissions. Track 2's utility/privacy evaluation always treats `holdout` as the untouched real-world test set. On a 100-patient dataset this produces slightly uneven admission counts per split (94/35, not exactly 80/20) — see P-003.
+**Commit:** [`c7c177a`](https://github.com/Ganglet/Doppel/commit/c7c177a996d1e91e8f4ae84d65b85c44b43b9bf2)
+
+---
+
+### ADR-002 — Clip age at 89, flag with `age_89_plus` instead of using the raw MIMIC-III value
+**Decision:** Ages computed from `DOB`/`ADMITTIME` are clipped at 89 and a separate boolean `age_89_plus` column is added, rather than passing the raw computed age through.
+**Why:** MIMIC-III shifts date-of-birth for patients over 89 as a HIPAA de-identification step, which otherwise produces raw ages around 300. Treating that as a real value would corrupt any age-based feature or model.
+**Impact:** Any downstream model (generator or evaluator) using `age` sees a capped, non-misleading value; anything that needs to know "this patient was actually 90+" should use `age_89_plus` instead.
+**Commit:** [`c7c177a`](https://github.com/Ganglet/Doppel/commit/c7c177a996d1e91e8f4ae84d65b85c44b43b9bf2)
+
+---
+
+### ADR-003 — `hospital_expire_flag` chosen as the downstream utility label over `readmit_30d`
+**Decision:** Track 2's train-on-synthetic/test-on-real utility evaluation targets `hospital_expire_flag` (in-hospital mortality), not `readmit_30d`.
+**Why:** Checked class counts by split before deciding: `hospital_expire_flag` has 6 positive cases in the 35-row holdout set; `readmit_30d` has only 2. Any AUROC computed on 2 positives is statistical noise on this dataset size.
+**Impact:** `readmit_30d` stays in the dataset as a secondary/stretch label if time allows, but all utility-pipeline results reported in [`utility_result.md`](utility_result.md) target `hospital_expire_flag`.
+**Commit:** [`d197827`](https://github.com/Ganglet/Doppel/commit/d19782754c4f2daabe4807af92430e68c2453e39)
+
+---
+
+### ADR-004 — `icd9_codes` serialized as JSON, not a Python list repr
+**Decision:** The `icd9_codes` column in `output/mimic_demo_clean.csv` is written with `json.dumps()` and must be read with `json.loads()`.
+**Why:** The original implementation used `.apply(list)`, which pandas writes to CSV as a Python literal string (e.g. `['99591', '99662']`). That's not valid JSON — anyone reading the column with `json.loads()` (the obvious choice) would get a parse error, and the interface contract didn't say which parser to use.
+**Impact:** Any code that consumes this column (Track 1's generators, Track 2's evaluation code) must use `json.loads()`. Documented explicitly in [`schema_and_feature_dictionary.md`](../schema_and_feature_dictionary.md) §8 so it isn't rediscovered the hard way.
+**Commit:** [`6280b0e`](https://github.com/Ganglet/Doppel/commit/6280b0e2d6ef7abcb055b0bf22f9dca9b095179f)
+
+---
+
+### ADR-005 — Evaluation code built and self-tested against the real `train` split as a synthetic-data stand-in
+**Decision:** Track 2's fidelity, utility, membership-inference, and attribute-inference code was written and validated before Track 1 produced any generator, by treating the real `train` split as a placeholder for synthetic data.
+**Why:** Track 1 hadn't started, but the evaluation protocol and code didn't need to wait — building and testing the harness against real data (with the same shape and interface as future synthetic data) meant zero rewrite when real synthetic data arrives, just a swapped input.
+**Impact:** Every number in [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), and [`attribute_inference_result.md`](attribute_inference_result.md) validates the *code*, not any generator's actual output. This must stay explicit in every writeup until real synthetic data exists.
+**Commits:** [`8f7fefe`](https://github.com/Ganglet/Doppel/commit/8f7fefe59e873fa9c2983ebb538989a1efe705c8), [`1f87231`](https://github.com/Ganglet/Doppel/commit/1f87231c0641fa57e993311863790aba87ff588c), [`09f7958`](https://github.com/Ganglet/Doppel/commit/09f79584221ddf410ebf6521f2fc72ca45c67f06), [`2b259af`](https://github.com/Ganglet/Doppel/commit/2b259afb1579ceec1a21c0ed7bb6cbe39f681ac2)
+
+---
+
+### ADR-006 — One git branch per phase, named `track<N>-phase<M>-<short-task-desc>`
+**Decision:** Each track's work on a given project phase lives on one branch, named with the track number, phase number, and a short kebab-case description of the phase's main task (e.g. `track2-phase1-eval-protocol`).
+**Why:** Keeps phase-scoped work isolated and reviewable without branch proliferation per individual file or commit; the phase number in the name makes it obvious at a glance which blueprint phase a branch corresponds to.
+**Impact:** When Phase 2 work starts on a track, a new `track<N>-phase2-<task>` branch is created rather than continuing to commit onto the Phase 1 branch.
+
+---
+
+### ADR-007 — Raw MIMIC-III source tables excluded from version control
+**Decision:** `.gitignore` excludes all raw MIMIC-III Demo CSVs (`PATIENTS.csv`, `ADMISSIONS.csv`, `LABEVENTS.csv`, etc.), PhysioNet license/checksum files, and Python cache directories.
+**Why:** These files are only needed locally to run `preprocess_mimic_demo.py`; committing them is unnecessary and, as a general practice for clinical source data, worth avoiding even when the specific dataset is de-identified and open-access.
+**Impact:** Anyone re-running preprocessing locally won't accidentally commit raw source tables even with a broad `git add`.
+**Commit:** [`6280b0e`](https://github.com/Ganglet/Doppel/commit/6280b0e2d6ef7abcb055b0bf22f9dca9b095179f)
+
+---
+
+## Problems Encountered
+
+### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
+**Week/Date:** 2026-09-17
+**Problem:** `utility_eval.py`'s `trtr_baseline()` crashed on the first fold with:
+```
+sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet. Call 'fit' with appropriate arguments before using this estimator.
+```
+**Fix:** `build_features()` was creating a fresh, unfitted `SimpleImputer` on every call instead of reusing the one fitted on the training fold. Changed the function signature to accept and thread through the fitted `num_imputer` on transform-only calls, the same way the `OneHotEncoder` was already being threaded through.
+**Lesson:** When a fit/transform helper function fits multiple objects (encoder, imputer, scaler), audit that *every* fitted object is threaded through the transform-only call path — it's easy to get the first one right and miss the second.
+
+---
+
+### P-002 — Logistic regression failing to converge in the utility pipeline
+**Week/Date:** 2026-09-17
+**Problem:** `LogisticRegression` raised repeated `ConvergenceWarning: lbfgs failed to converge after 1000 iteration(s)` during 5-fold CV, even at `max_iter=1000`.
+**Fix:** Added a `StandardScaler` on numeric features (lab values, LOS in days, age — all on very different scales) before fitting, instead of raising `max_iter` further.
+**Lesson:** A logistic regression convergence warning on tabular data with mixed-magnitude numeric features is usually a scaling problem, not an iteration-count problem.
+
+---
+
+### P-003 — Attribute-inference attack always predicted the majority class
+**Week/Date:** 2026-09-17
+**Problem:** `attribute_inference.py`'s attacker (target: `ethnicity`) scored exactly at the base rate (0.5143 accuracy, 0.0000 uplift) — it was predicting `WHITE` for every holdout row.
+**Fix:** No code fix — traced to the data: `HISPANIC/LATINO - PUERTO RICAN` is 15 of 35 holdout admissions (43%) but 0 of 94 train admissions, a direct consequence of ADR-001's patient-level random split on only 100 patients. Documented in [`eval_protocol.md`](../eval_protocol.md) and [`attribute_inference_result.md`](attribute_inference_result.md) rather than silently "fixed."
+**Lesson:** On a 100-patient dataset, always check per-column class coverage between train and holdout before trusting a privacy-attack result — a "good" (low) attack score can mean the attacker genuinely couldn't infer the attribute, or it can mean the attacker never saw that class in training. Those are not the same finding.
+
+---
+
+### P-004 — Schema doc claimed a source table was used that the code never loaded
+**Week/Date:** 2026-09-17
+**Problem:** `schema_and_feature_dictionary.md` listed `D_ICD_DIAGNOSES.csv` as a used source table (for ICD-9 code descriptions), but `preprocess_mimic_demo.py`'s `load_raw()` never loaded it, and no ICD-9 description lookup file existed in `output/`.
+**Fix:** Flagged in code review; fixed in commit `6280b0e` — `D_ICD_DIAGNOSES.csv` is now loaded and written out as `output/icd9_lookup.csv` (14,567 code→description rows).
+**Lesson:** A schema/interface doc and the code it describes can silently drift apart even within the same original commit — worth an explicit check ("does the code actually load every table the doc lists?") as part of reviewing any data-prep deliverable.
