@@ -1,0 +1,26 @@
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: doppel-smoke-test
+  namespace: doppel
+  labels:
+    project: doppel
+    component: infrastructure
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        project: doppel
+        component: infrastructure
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: smoke-test
+          image: doppel/base:0.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PROJECT_NAME
+              value: "Doppel"
+            
