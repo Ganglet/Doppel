@@ -1,0 +1,50 @@
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doppel Generator Output Contract",
+  "type": "object",
+  "required": [
+    "run_id",
+    "generator_name",
+    "generator_version",
+    "input_dataset_id",
+    "output_path",
+    "output_format",
+    "num_records"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "generator_name": {
+      "type": "string",
+      "enum": [
+        "statistical_baseline",
+        "ctgan",
+        "tvae",
+        "tabular_diffusion"
+      ]
+    },
+    "generator_version": {
+      "type": "string"
+    },
+    "input_dataset_id": {
+      "type": "string"
+    },
+    "output_path": {
+      "type": "string"
+    },
+    "output_format": {
+      "type": "string",
+      "enum": [
+        "csv",
+        "parquet"
+      ]
+    },
+    "num_records": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

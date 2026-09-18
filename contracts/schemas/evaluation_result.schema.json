@@ -1,0 +1,35 @@
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doppel Evaluation Result Contract",
+  "type": "object",
+  "required": [
+    "run_id",
+    "generator_name",
+    "metrics"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "generator_name": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "fidelity": {
+          "type": "object"
+        },
+        "utility": {
+          "type": "object"
+        },
+        "privacy": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

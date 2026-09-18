@@ -1,0 +1,54 @@
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doppel Processed Dataset Contract",
+  "type": "object",
+  "required": [
+    "dataset_id",
+    "schema_version",
+    "data_path",
+    "format",
+    "columns"
+  ],
+  "properties": {
+    "dataset_id": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "data_path": {
+      "type": "string"
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "csv",
+        "parquet"
+      ]
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "dtype"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "dtype": {
+            "type": "string"
+          },
+          "nullable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
