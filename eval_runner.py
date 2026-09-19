@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from attribute_inference import run_attribute_inference
+from attribute_inference import run_attribute_inference, run_attribute_targets
 from fidelity_metrics import run_fidelity_report
 from generators import schema as S
 from generators.codec import FrameCodec
@@ -70,6 +70,7 @@ def evaluate(generator, seed):
         fidelity = run_fidelity_report(train, synth)
         utility = utility_gap_report(train, holdout, synth)
         attribute = run_attribute_inference(synth, holdout)
+        attribute_targets = run_attribute_targets(synth, train, holdout)
         generator_fn = real_generator_fn(generator)
         membership = run_membership_inference(train, generator_fn, NUMERIC_COLS, n_shadow=N_SHADOW, seed=seed)
         membership_gower = run_membership_inference(
@@ -84,6 +85,7 @@ def evaluate(generator, seed):
             "utility": utility,
             "privacy": {
                 "attribute_inference": attribute,
+                "attribute_inference_targets": attribute_targets,
                 "membership_inference": {**membership, "n_shadow": N_SHADOW},
                 "membership_inference_gower": {**membership_gower, "n_shadow": N_SHADOW},
             },

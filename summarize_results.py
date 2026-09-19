@@ -23,6 +23,9 @@ def headline(result):
         "mia_gower_auroc": m["privacy"]["membership_inference_gower"]["mean_attack_auroc"],
         "attr_uplift": m["privacy"]["attribute_inference"]["uplift"],
     }
+    for t, r in m["privacy"]["attribute_inference_targets"].items():
+        row[f"attr_{t}_uplift_members"] = r["uplift_members"]
+        row[f"attr_{t}_gap"] = r["member_gap"]
     for c in CLASSIFIERS:
         row[f"tstr_{c}"] = m["utility"]["tstr_auroc"][c]
         row[f"gap_{c}"] = m["utility"]["gap"][c]
