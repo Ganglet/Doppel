@@ -52,3 +52,10 @@ Per-column JS divergence:
 ```
 
 (`hospital_expire_flag` and `readmit_30d` show 0.0000 because both splits happen to share a similar positive rate — not because these columns are trivially "easy," just a real coincidence of this particular split.)
+
+---
+
+## Correction (2026-09-19)
+
+The parenthetical above, that `hospital_expire_flag` and `readmit_30d` scored 0.0000 because both splits share a similar positive rate, is wrong. Track 1 found that the 10-quantile binning collapses a two-valued column to one bin, so those columns scored 0 whatever the rates were (train mortality 36.2%, holdout 17.1%). See P-007 in [`problems_and_decisions.md`](problems_and_decisions.md). After the fix the real-vs-real numbers are: mean JSD 0.0991 over 52 columns (was 0.1001 over 49), correlation diff 0.2025 and KS pass fraction 0.6522 (both unchanged). The two flags now score 0.0340 and 0.0038, and `age_89_plus` scores 0.0112.
+

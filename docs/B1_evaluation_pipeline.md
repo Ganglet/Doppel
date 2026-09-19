@@ -1,8 +1,8 @@
 # Privacy & Utility Evaluation Pipeline
 
-**Phase:** Phase 1 — Foundation & Design, with Phase 2 code implementation started early (Weeks 1–2 of a 14-week plan)
+**Phase:** Phase 1 (protocol, metric code) and Phase 2 start (evaluation runner on real synthetic data)
 **Owner:** Rayyan (Track 2 / Track B)
-**Status:** Protocol and all four metric modules implemented and self-tested. Blocked on Track 1 for evaluation against real synthetic data — see [`problems_and_decisions.md`](problems_and_decisions.md) ADR-005.
+**Status:** Protocol, four metric modules and `eval_runner.py` implemented. The runner has scored both Track 1 baselines over 20 seeds ([`baseline_evaluation_result.md`](baseline_evaluation_result.md)). Waiting on CTGAN/TVAE and the diffusion model for the actual comparison.
 
 ---
 
@@ -46,7 +46,13 @@ Because a distance-based membership attack has no ground truth to check itself a
 # Setup
 pip install pandas==2.3.3 numpy scikit-learn==1.8.0 scipy==1.17.1
 
-# Run each metric module (all read output/mimic_demo_clean.csv directly)
+# Score one synthetic dataset, write results/<generator>_seed<n>.json (contract JSON)
+python eval_runner.py --generator gaussian_copula --seed 42
+
+# Mean +/- sd over every seed in results/
+python summarize_results.py
+
+# Run each metric module on its own (all read output/mimic_demo_clean.csv directly)
 python fidelity_metrics.py
 python utility_eval.py
 python membership_inference.py
@@ -78,5 +84,6 @@ No flags, no config files — each script's `main()` is the reference invocation
 | Utility pipeline module | `utility_eval.py` |
 | Membership-inference module | `membership_inference.py` |
 | Attribute-inference module | `attribute_inference.py` |
+| Evaluation runner (contract JSON) | `eval_runner.py`, `summarize_results.py` |
 | Downstream utility label | `hospital_expire_flag` |
-| Result writeups | [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |
+| Result writeups | [`baseline_evaluation_result.md`](baseline_evaluation_result.md), [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |
