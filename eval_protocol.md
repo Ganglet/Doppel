@@ -18,17 +18,23 @@ rate, which is workable. `readmit_30d` stays available as a secondary/stretch la
 
 ## 2. Fidelity metrics
 
-Run column-by-column, real vs. synthetic, on the same feature set (excluding `subject_id`, `hadm_id`,
-`icd9_codes`, `split`).
+Run column-by-column, synthetic vs. the real **train** split (the data the generator was fit on), on the
+same feature set (excluding `subject_id`, `hadm_id`, `icd9_codes`, `split`). Real train vs. real holdout is
+reported alongside as the sampling-noise floor, not as a generator score.
 
 | Metric | Applies to | Formula | Threshold |
 |---|---|---|---|
-| Jensen–Shannon divergence | categorical + binned continuous | JSD(P\|\|Q) over the column's value distribution, base-2 (range 0–1) | mean JSD ≤ 0.10 = good, ≤ 0.20 = acceptable, > 0.20 = fail |
-| Pairwise correlation preservation | numeric columns | mean absolute difference between real and synthetic Pearson correlation matrices (upper triangle only) | ≤ 0.10 = good, ≤ 0.20 = acceptable, > 0.20 = fail |
+| Jensen–Shannon divergence | categorical, binary, and binned continuous | JSD(P\|\|Q) over the column's value distribution, base-2 (range 0–1) | mean JSD ≤ 0.10 = good, ≤ 0.20 = acceptable, > 0.20 = fail |
+| Pairwise correlation preservation | numeric columns | mean absolute difference between real and synthetic Pearson correlation matrices (upper triangle only) | reported against two references, not gated: the real-vs-real floor (0.203) and the `independent_marginals` baseline (0.163) |
 | Dimension-wise distribution check | numeric columns | two-sample Kolmogorov–Smirnov test per column | fraction of columns with KS p ≥ 0.05 reported as a summary stat, not a hard gate |
 
-Continuous columns are binned into 10 quantile-based bins before computing JSD, so categorical and
-continuous features share one code path.
+Continuous columns are binned into 10 quantile-based bins before computing JSD. Binary columns
+(`hospital_expire_flag`, `readmit_30d`, `age_89_plus`) go through the categorical path, because 10-quantile
+binning collapses two values into one bin and scores JSD 0 regardless of the positive rate (P-007).
+
+**Revision (2026-09-19):** the original absolute correlation thresholds (≤ 0.10 good, ≤ 0.20 acceptable)
+were dropped. Real train vs. real holdout already scores 0.203, so no generator could pass against the
+holdout, and a 94-row sample carries roughly 1/√94 ≈ 0.10 of sampling noise per correlation entry.
 
 ## 3. Downstream utility metric
 
@@ -39,9 +45,17 @@ continuous features share one code path.
 - Classifiers: Logistic Regression (baseline) and Random Forest
 - Metric: AUROC (chosen over accuracy because of the ~31%/69% class split)
 - TRTR baseline: 5-fold stratified CV on the real train split
-- TSTR: train on the generator's synthetic data, evaluate once on the real holdout split
-- **Threshold:** TSTR AUROC within 0.10 of the TRTR baseline = good; within 0.20 = acceptable;
-  beyond that = fail (the generator isn't preserving the signal needed for this task)
+- TSTR: train on the generator's synthetic data, evaluate on the real holdout split
+- **Seeds:** every generator is run over 20 seeds (42–61) and reported as mean ± sd (ADR-012). A single
+  seed is never reported.
+- **Comparison:** the reference points are the `independent_marginals` mean (zero feature-label dependence
+  by construction, so the chance floor) and the TRTR ceiling. Generators are compared with a Welch t-test
+  over seeds, uncorrected for multiple comparisons.
+
+**Revision (2026-09-19):** the original threshold ("TSTR within 0.10 of TRTR = good") was dropped. The
+seed-to-seed sd of TSTR AUROC is 0.15–0.22 on this holdout (6 positives in 35 rows), which is larger
+than the threshold, so pass/fail would be decided by the seed. Utility is reported descriptively until a
+larger holdout exists.
 
 ## 4. Privacy metrics
 
