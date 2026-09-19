@@ -2,6 +2,9 @@
 
 Raw evidence that `utility_eval.py`'s train-on-real/test-on-real (TRTR) and train-on-synthetic/test-on-real (TSTR) pipeline works end-to-end. Reproduce with `python utility_eval.py` from the repo root.
 
+> **Stand-in run (Phase 1).** This measured real train against real holdout, not a generator. The same metric on real synthetic data is in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) and [`B2_evaluation_phase2.md`](B2_evaluation_phase2.md).
+
+
 ---
 
 ## Method (honest framing)

@@ -1,8 +1,8 @@
 # Privacy & Utility Evaluation Pipeline
 
-**Phase:** Phase 1 (protocol, metric code) and Phase 2 start (evaluation runner on real synthetic data)
+**Phase:** Phase 1 — Foundation & Design (Weeks 1–2), with the metric code written early against a stand-in dataset
 **Owner:** Rayyan (Track 2 / Track B)
-**Status:** Protocol, four metric modules and `eval_runner.py` implemented. The runner has scored both Track 1 baselines over 20 seeds ([`baseline_evaluation_result.md`](baseline_evaluation_result.md)). Waiting on CTGAN/TVAE and the diffusion model for the actual comparison.
+**Status:** Complete. The protocol and four metric modules were implemented and self-tested against a stand-in. Running them on real synthetic data, the result JSON, calibration and the Pareto module are in [`B2_evaluation_phase2.md`](B2_evaluation_phase2.md).
 
 ---
 
@@ -46,17 +46,6 @@ Because a distance-based membership attack has no ground truth to check itself a
 # Setup
 pip install pandas==2.3.3 numpy scikit-learn==1.8.0 scipy==1.17.1
 
-# Membership attack ceiling/floor controls, and the direct check on real synthetic files
-python mia_calibration.py
-python mia_direct_check.py
-
-# Score one synthetic dataset, write results/<generator>_seed<n>.json (contract JSON)
-python eval_runner.py --generator gaussian_copula --seed 42
-
-# Mean +/- sd over every seed in results/, then the Pareto frontier
-python summarize_results.py
-python pareto.py
-
 # Run each metric module on its own (all read output/mimic_demo_clean.csv directly)
 python fidelity_metrics.py
 python utility_eval.py
@@ -64,7 +53,7 @@ python membership_inference.py
 python attribute_inference.py
 ```
 
-No flags, no config files — each script's `main()` is the reference invocation until Track 4 wires these into the aggregation stage.
+No flags, no config files. Each script's `main()` is the reference invocation. The runner that emits contract JSON is in B2.
 
 ---
 
@@ -76,7 +65,7 @@ No flags, no config files — each script's `main()` is the reference invocation
 
 **Why does the membership-inference attack use nearest-neighbor distance instead of model confidence scores?** The target being attacked is a data generator, not a classifier — a generator has no "confidence output" to query. Nearest-neighbor distance between a candidate record and the synthetic dataset is the standard proxy: records the generator memorized should sit closer to at least one synthetic point than records it never saw.
 
-**Why is the attribute-inference attack's 0.0 uplift not reported as a privacy success?** Because the cause was checked and it's a data artifact (the attacker never saw the target class in training — P-003), not evidence the generator/protocol resists attribute inference. Reporting it without that caveat would be the kind of unearned claim this documentation system exists to prevent.
+**Why is the attribute-inference attack's 0.0 uplift not reported as a privacy success?** (Superseded by [`attribute_targets_result.md`](attribute_targets_result.md), which uses attributes both splits cover.) Because the cause was checked and it's a data artifact (the attacker never saw the target class in training — P-003), not evidence the generator/protocol resists attribute inference. Reporting it without that caveat would be the kind of unearned claim this documentation system exists to prevent.
 
 ---
 
@@ -89,8 +78,6 @@ No flags, no config files — each script's `main()` is the reference invocation
 | Utility pipeline module | `utility_eval.py` |
 | Membership-inference module | `membership_inference.py` |
 | Attribute-inference module | `attribute_inference.py` |
-| Evaluation runner (contract JSON) | `eval_runner.py`, `summarize_results.py` |
-| Membership attack calibration | `mia_calibration.py`, `mia_direct_check.py` |
-| Pareto frontier | `pareto.py` |
 | Downstream utility label | `hospital_expire_flag` |
-| Result writeups | [`pareto_result.md`](pareto_result.md), [`attribute_targets_result.md`](attribute_targets_result.md), [`membership_calibration_result.md`](membership_calibration_result.md), [`baseline_evaluation_result.md`](baseline_evaluation_result.md), [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |
+| Result writeups | [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) (all stand-in runs) |
+| Phase 2 | [`B2_evaluation_phase2.md`](B2_evaluation_phase2.md) |
