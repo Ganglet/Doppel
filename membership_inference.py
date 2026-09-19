@@ -56,6 +56,7 @@ def codes_distances(pop_df, synth_df, keep_codes=None):
 
 
 def gower_distances(pop_df, synth_df):
+    # numeric columns are scaled by the range of pop_df, so score members and non-members in one call
     lab_cols = [c for c in pop_df.columns if c.startswith("lab_")]
     num_cols = NUMERIC_COLS + lab_cols
     pop_num = pop_df[num_cols].to_numpy(float)
