@@ -1,0 +1,92 @@
+"""
+Doppel - Track 2 evaluation runner.
+
+Scores one synthetic dataset and writes results/<run_id>.json in the shape of
+contracts/schemas/evaluation_result.schema.json.
+
+    python eval_runner.py --generator gaussian_copula --seed 42
+"""
+
+import argparse
+import json
+import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from attribute_inference import run_attribute_inference
+from fidelity_metrics import run_fidelity_report
+from generators import schema as S
+from generators.generate import run as run_generator
+from utility_eval import utility_gap_report
+
+RESULTS_DIR = Path("results")
+SCHEMA_PATH = Path("contracts/schemas/evaluation_result.schema.json")
+
+
+def _plain(obj):
+    if isinstance(obj, dict):
+        return {str(k): _plain(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_plain(v) for v in obj]
+    if isinstance(obj, (np.floating, float)):
+        return None if np.isnan(obj) else float(obj)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    return obj
+
+
+def load_synthetic(generator, seed):
+    path = S.SYNTH_DIR / f"{generator}_seed{seed}.csv"
+    if not path.exists():
+        path = run_generator(generator, seed)
+    return pd.read_csv(path)
+
+
+def evaluate(generator, seed):
+    real = S.load_real()
+    train = real[real[S.SPLIT_COL] == S.TRAIN_SPLIT].reset_index(drop=True)
+    holdout = real[real[S.SPLIT_COL] != S.TRAIN_SPLIT].reset_index(drop=True)
+    synth = load_synthetic(generator, seed)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fidelity = run_fidelity_report(train, synth)
+        utility = utility_gap_report(train, holdout, synth)
+        attribute = run_attribute_inference(synth, holdout)
+
+    return {
+        "run_id": f"{generator}_seed{seed}",
+        "generator_name": generator,
+        "metrics": _plain({
+            "fidelity": fidelity,
+            "utility": utility,
+            "privacy": {"attribute_inference": attribute},
+        }),
+    }
+
+
+def validate_result(result):
+    import jsonschema
+
+    jsonschema.validate(result, json.loads(SCHEMA_PATH.read_text()))
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    parser.add_argument("--generator", required=True)
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args(argv)
+
+    result = evaluate(args.generator, args.seed)
+    validate_result(result)
+
+    RESULTS_DIR.mkdir(exist_ok=True)
+    path = RESULTS_DIR / f"{result['run_id']}.json"
+    path.write_text(json.dumps(result, indent=2) + "\n")
+    print(f"wrote {path}")
+
+
+if __name__ == "__main__":
+    main()
