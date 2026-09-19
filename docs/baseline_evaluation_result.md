@@ -32,7 +32,10 @@ What this does not show:
 | Membership AUROC, 4 numeric columns | 0.522 ± 0.027 | 0.507 ± 0.034 | 0.121 | protocol band 0.45 to 0.55 |
 | Membership AUROC, Gower (all columns) | 0.583 ± 0.021 | 0.551 ± 0.030 | 0.0004 | floor 0.503 |
 | Membership AUROC, ICD-9 code sets | 0.639 ± 0.016 | 0.638 ± 0.016 | | floor 0.489, fail line 0.65 |
-| Attribute inference uplift | 0.0000 ± 0.0000 | 0.0000 ± 0.0000 | | see P-003 |
+| Attribute inference uplift, ethnicity (superseded) | 0.0000 ± 0.0000 | 0.0000 ± 0.0000 | | see P-003 |
+| Attribute inference, age bucket: member gap | −0.001 ± 0.090 | −0.021 ± 0.083 | | ceiling 0.571 |
+| Attribute inference, first care unit: member gap | 0.009 ± 0.019 | −0.003 ± 0.016 | | ceiling 0.768 |
+| Attribute inference, gender: member gap | 0.056 ± 0.114 | 0.062 ± 0.092 | | ceiling 0.620; set-composition bias, P-011 |
 
 Reading it:
 
@@ -42,7 +45,7 @@ Reading it:
 | Does the copula preserve more correlation? | Yes, but by 0.027 out of a noise floor of 0.203. It is a real difference and a small one. |
 | Does the copula preserve more utility signal? | Probably, at about 0.14 AUROC higher, but the p-values are 0.046 and 0.009 before correction and the seed sd is 0.15 to 0.22. Suggestive, not established. |
 | Is either generator outside the privacy band? | On the 4-column attack no (copula 0.522, one-sample p = 0.002; independent 0.507, p = 0.40). On the stronger attacks yes: Gower reads 0.583 and 0.551, and ICD-9 code sets read 0.639 and 0.638, close to the 0.65 fail line. The 4-column result understated the leak; see [`membership_calibration_result.md`](membership_calibration_result.md). |
-| Is the attribute-inference result informative? | No. Uplift is 0.0000 for every seed because the attacker never sees the Puerto Rican class in training (P-003). |
+| Is the attribute-inference result informative? | The ethnicity number no (P-003). On attributes both splits cover, neither baseline shows a member gap beyond the no-dependence control, but the attack only detects memorization on this dataset; see [`attribute_targets_result.md`](attribute_targets_result.md). |
 
 ---
 

@@ -91,4 +91,4 @@ No flags, no config files — each script's `main()` is the reference invocation
 | Evaluation runner (contract JSON) | `eval_runner.py`, `summarize_results.py` |
 | Membership attack calibration | `mia_calibration.py`, `mia_direct_check.py` |
 | Downstream utility label | `hospital_expire_flag` |
-| Result writeups | [`membership_calibration_result.md`](membership_calibration_result.md), [`baseline_evaluation_result.md`](baseline_evaluation_result.md), [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |
+| Result writeups | [`attribute_targets_result.md`](attribute_targets_result.md), [`membership_calibration_result.md`](membership_calibration_result.md), [`baseline_evaluation_result.md`](baseline_evaluation_result.md), [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |

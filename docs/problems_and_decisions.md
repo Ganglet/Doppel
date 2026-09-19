@@ -134,6 +134,14 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-017 — Attribute inference reports the member gap on attributes both splits cover
+**Decision:** Attribute inference targets `gender`, `first_careunit` and an age bucket, scores members (train) and non-members (holdout) separately with balanced accuracy minus chance, and treats the member gap as the privacy number. The ethnicity version stays in the code and results JSON but is not scored.
+**Why:** The ethnicity target had a class missing from train (P-003), and scoring only holdout rows measured general inference, which is not a privacy leak. Balanced accuracy stops a shifted class mix from faking an uplift.
+**Impact:** The results JSON carries `attribute_inference_targets` next to the old `attribute_inference`. No threshold is set, because real data barely supports inferring these attributes on unseen rows (uplift −0.120, 0.032, 0.096) and a threshold would be decided by seed noise. Track 4 should not chart the old ethnicity number.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
@@ -216,4 +224,12 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Problem:** The 4-numeric-column attack read 0.522 (copula) and 0.507 (independent marginals) over 20 seeds, and I wrote in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) that both sat inside the privacy band. Adding a ceiling (exact copy, 1.000) and floor (never-seen real rows, 0.502) showed the attack had almost no room to detect anything on those columns, and an attack on ICD-9 code sets reads 0.639 and 0.638. Splitting the codes by train frequency gives 0.84 on the 286 codes seen once and 0.62 on the 197 seen 2+ times. A direct check on the real synthetic files was confounded: against all 35 holdout rows the Gower score read 0.62 to 0.65 but fell to 0.47 to 0.49 without the 15 Puerto Rican rows, because those rows are absent from train (P-003).
 **Fix:** Added the Gower and code-set attacks, the calibration script, and the direct-check script; corrected the baseline writeup and rewrote the protocol's privacy section (ADR-016). The mechanism (a generator can only emit codes it saw, so a non-member's unique code never appears) fits the data but is untested against a generator that suppresses rare codes.
 **Lesson:** An attack needs a known ceiling and floor before its output means anything. A score near 0.5 says "the attack found nothing", which is a claim about the attack until it has been shown to find something on a generator that leaks.
+
+---
+
+### P-011 — The member gap is biased by how the member and non-member sets differ
+**Week/Date:** 2026-09-19
+**Problem:** On `gender`, `independent_marginals` shows a member gap of 0.062 (one-sample p = 0.007) even though it destroys every cross-column relationship and cannot support attribute inference. The copula shows 0.056. The cause is the sets, not the generator: train is 47 F / 47 M and the 35-row holdout is 12 F / 23 M, so balanced accuracy on non-members drops for reasons unrelated to membership. The same set mismatch confounded the direct membership check (P-010).
+**Fix:** None possible without a holdout that matches train. Each generator's gap is read against `independent_marginals` rather than against zero, and the writeup says so.
+**Lesson:** Any "members vs non-members" comparison needs a null arm run through the same two sets. A gap that a no-dependence generator reproduces is a property of the split.
 
