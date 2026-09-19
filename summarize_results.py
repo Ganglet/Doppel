@@ -21,6 +21,8 @@ def headline(result):
         "ks_pass": m["fidelity"]["ks_pass_fraction"],
         "mia_auroc": m["privacy"]["membership_inference"]["mean_attack_auroc"],
         "mia_gower_auroc": m["privacy"]["membership_inference_gower"]["mean_attack_auroc"],
+        "mia_codes_auroc": m["privacy"]["membership_inference_codes"]["mean_attack_auroc"],
+        "mia_worst_case": m["privacy"]["membership_worst_case"]["mean_attack_auroc"],
         "attr_uplift": m["privacy"]["attribute_inference"]["uplift"],
     }
     for t, r in m["privacy"]["attribute_inference_targets"].items():

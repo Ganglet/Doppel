@@ -20,7 +20,7 @@ from fidelity_metrics import run_fidelity_report
 from generators import schema as S
 from generators.codec import FrameCodec
 from generators.generate import GENERATORS, run as run_generator
-from membership_inference import NUMERIC_COLS, gower_distances, run_membership_inference
+from membership_inference import NUMERIC_COLS, codes_distances, gower_distances, run_membership_inference
 from utility_eval import utility_gap_report
 
 N_SHADOW = 8
@@ -59,6 +59,18 @@ def real_generator_fn(name, min_count=5):
     return generate
 
 
+def cached(generator_fn):
+    memo = {}
+
+    def generate(member_df, numeric_cols, n_samples, seed):
+        key = (seed, n_samples, tuple(member_df.index))
+        if key not in memo:
+            memo[key] = generator_fn(member_df, numeric_cols, n_samples, seed)
+        return memo[key]
+
+    return generate
+
+
 def evaluate(generator, seed):
     real = S.load_real()
     train = real[real[S.SPLIT_COL] == S.TRAIN_SPLIT].reset_index(drop=True)
@@ -71,11 +83,19 @@ def evaluate(generator, seed):
         utility = utility_gap_report(train, holdout, synth)
         attribute = run_attribute_inference(synth, holdout)
         attribute_targets = run_attribute_targets(synth, train, holdout)
-        generator_fn = real_generator_fn(generator)
-        membership = run_membership_inference(train, generator_fn, NUMERIC_COLS, n_shadow=N_SHADOW, seed=seed)
-        membership_gower = run_membership_inference(
-            train, generator_fn, NUMERIC_COLS, n_shadow=N_SHADOW, seed=seed, distance_fn=gower_distances
-        )
+        generator_fn = cached(real_generator_fn(generator))
+        attacks = {
+            "membership_inference": None,
+            "membership_inference_gower": gower_distances,
+            "membership_inference_codes": codes_distances,
+        }
+        membership = {
+            name: {**run_membership_inference(
+                train, generator_fn, NUMERIC_COLS, n_shadow=N_SHADOW, seed=seed, distance_fn=fn
+            ), "n_shadow": N_SHADOW}
+            for name, fn in attacks.items()
+        }
+        worst = max(membership, key=lambda k: membership[k]["mean_attack_auroc"])
 
     return {
         "run_id": f"{generator}_seed{seed}",
@@ -86,8 +106,11 @@ def evaluate(generator, seed):
             "privacy": {
                 "attribute_inference": attribute,
                 "attribute_inference_targets": attribute_targets,
-                "membership_inference": {**membership, "n_shadow": N_SHADOW},
-                "membership_inference_gower": {**membership_gower, "n_shadow": N_SHADOW},
+                **membership,
+                "membership_worst_case": {
+                    "attack": worst,
+                    "mean_attack_auroc": membership[worst]["mean_attack_auroc"],
+                },
             },
         }),
     }
