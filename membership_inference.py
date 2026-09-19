@@ -40,6 +40,18 @@ def nearest_neighbor_distances(records, synth_matrix):
     return dists
 
 
+def codes_distances(pop_df, synth_df):
+    pop_codes = [json.loads(v) for v in pop_df["icd9_codes"]]
+    synth_codes = [json.loads(v) for v in synth_df["icd9_codes"]]
+    mlb = MultiLabelBinarizer(sparse_output=False)
+    mlb.fit(pop_codes + synth_codes)
+    a = mlb.transform(pop_codes).astype(float)
+    b = mlb.transform(synth_codes).astype(float)
+    inter = a @ b.T
+    union = a.sum(axis=1)[:, None] + b.sum(axis=1)[None, :] - inter
+    return 1.0 - np.divide(inter, union, out=np.ones_like(inter), where=union > 0)
+
+
 def gower_distances(pop_df, synth_df):
     lab_cols = [c for c in pop_df.columns if c.startswith("lab_")]
     num_cols = NUMERIC_COLS + lab_cols
@@ -56,13 +68,7 @@ def gower_distances(pop_df, synth_df):
     for c in GOWER_CATEGORICAL:
         total += (pop_df[c].astype(str).to_numpy()[:, None] != synth_df[c].astype(str).to_numpy()[None, :])
 
-    mlb = MultiLabelBinarizer(sparse_output=False)
-    mlb.fit([json.loads(v) for v in pop_df["icd9_codes"]] + [json.loads(v) for v in synth_df["icd9_codes"]])
-    a = mlb.transform([json.loads(v) for v in pop_df["icd9_codes"]]).astype(float)
-    b = mlb.transform([json.loads(v) for v in synth_df["icd9_codes"]]).astype(float)
-    inter = a @ b.T
-    union = a.sum(axis=1)[:, None] + b.sum(axis=1)[None, :] - inter
-    total += 1.0 - np.divide(inter, union, out=np.ones_like(inter), where=union > 0)
+    total += codes_distances(pop_df, synth_df)
 
     return total / (len(num_cols) + len(GOWER_CATEGORICAL) + 1)
 

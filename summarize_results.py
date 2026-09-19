@@ -20,6 +20,7 @@ def headline(result):
         "corr_diff": m["fidelity"]["correlation_diff"],
         "ks_pass": m["fidelity"]["ks_pass_fraction"],
         "mia_auroc": m["privacy"]["membership_inference"]["mean_attack_auroc"],
+        "mia_gower_auroc": m["privacy"]["membership_inference_gower"]["mean_attack_auroc"],
         "attr_uplift": m["privacy"]["attribute_inference"]["uplift"],
     }
     for c in CLASSIFIERS:

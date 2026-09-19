@@ -20,7 +20,7 @@ from fidelity_metrics import run_fidelity_report
 from generators import schema as S
 from generators.codec import FrameCodec
 from generators.generate import GENERATORS, run as run_generator
-from membership_inference import NUMERIC_COLS, run_membership_inference
+from membership_inference import NUMERIC_COLS, gower_distances, run_membership_inference
 from utility_eval import utility_gap_report
 
 N_SHADOW = 8
@@ -70,8 +70,10 @@ def evaluate(generator, seed):
         fidelity = run_fidelity_report(train, synth)
         utility = utility_gap_report(train, holdout, synth)
         attribute = run_attribute_inference(synth, holdout)
-        membership = run_membership_inference(
-            train, real_generator_fn(generator), NUMERIC_COLS, n_shadow=N_SHADOW, seed=seed
+        generator_fn = real_generator_fn(generator)
+        membership = run_membership_inference(train, generator_fn, NUMERIC_COLS, n_shadow=N_SHADOW, seed=seed)
+        membership_gower = run_membership_inference(
+            train, generator_fn, NUMERIC_COLS, n_shadow=N_SHADOW, seed=seed, distance_fn=gower_distances
         )
 
     return {
@@ -80,7 +82,11 @@ def evaluate(generator, seed):
         "metrics": _plain({
             "fidelity": fidelity,
             "utility": utility,
-            "privacy": {"attribute_inference": attribute, "membership_inference": {**membership, "n_shadow": N_SHADOW}},
+            "privacy": {
+                "attribute_inference": attribute,
+                "membership_inference": {**membership, "n_shadow": N_SHADOW},
+                "membership_inference_gower": {**membership_gower, "n_shadow": N_SHADOW},
+            },
         }),
     }
 
