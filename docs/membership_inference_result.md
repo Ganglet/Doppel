@@ -2,7 +2,7 @@
 
 Raw evidence for the claim that `membership_inference.py`'s shadow-model attack behaves correctly — i.e. it can actually detect membership leakage when leakage is present, and detect its absence when it isn't. Reproduce with `python membership_inference.py` from the repo root.
 
-> **Stand-in run (Phase 1).** This measured real train against real holdout, not a generator. The same metric on real synthetic data is in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) and [`B2_evaluation_phase2.md`](B2_evaluation_phase2.md).
+> **Stand-in run (Phase 1).** This measured real train against real holdout, not a generator. The same metric on real synthetic data is in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) and [`B2_eval_runner.md`](B2_eval_runner.md).
 
 > **Superseded for privacy claims:** the 4-column attack here reads 0.51 to 0.52 on real baselines while ICD-9 code sets read 0.64. See [`membership_calibration_result.md`](membership_calibration_result.md).
 

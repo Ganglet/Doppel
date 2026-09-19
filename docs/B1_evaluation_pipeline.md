@@ -2,7 +2,7 @@
 
 **Phase:** Phase 1 — Foundation & Design (Weeks 1–2), with the metric code written early against a stand-in dataset
 **Owner:** Rayyan (Track 2 / Track B)
-**Status:** Complete. The protocol and four metric modules were implemented and self-tested against a stand-in. Running them on real synthetic data, the result JSON, calibration and the Pareto module are in [`B2_evaluation_phase2.md`](B2_evaluation_phase2.md).
+**Status:** Complete. The protocol and four metric modules were implemented and self-tested against a stand-in. Running them on real synthetic data, the result JSON, calibration and the Pareto module are in [`B2_eval_runner.md`](B2_eval_runner.md).
 
 ---
 
@@ -80,4 +80,4 @@ No flags, no config files. Each script's `main()` is the reference invocation. T
 | Attribute-inference module | `attribute_inference.py` |
 | Downstream utility label | `hospital_expire_flag` |
 | Result writeups | [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) (all stand-in runs) |
-| Phase 2 | [`B2_evaluation_phase2.md`](B2_evaluation_phase2.md) |
+| Phase 2 | [`B2_eval_runner.md`](B2_eval_runner.md) |

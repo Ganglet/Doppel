@@ -2,7 +2,7 @@
 
 Raw evidence for what `attribute_inference.py` actually measured, and why the headline number (0.0000 uplift) is not a valid privacy claim on its own. Reproduce with `python attribute_inference.py` from the repo root.
 
-> **Stand-in run (Phase 1).** This measured real train against real holdout, not a generator. The same metric on real synthetic data is in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) and [`B2_evaluation_phase2.md`](B2_evaluation_phase2.md).
+> **Stand-in run (Phase 1).** This measured real train against real holdout, not a generator. The same metric on real synthetic data is in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) and [`B2_eval_runner.md`](B2_eval_runner.md).
 
 > **Superseded:** the ethnicity target is not scored any more. See [`attribute_targets_result.md`](attribute_targets_result.md).
 
