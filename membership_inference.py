@@ -40,9 +40,12 @@ def nearest_neighbor_distances(records, synth_matrix):
     return dists
 
 
-def codes_distances(pop_df, synth_df):
+def codes_distances(pop_df, synth_df, keep_codes=None):
     pop_codes = [json.loads(v) for v in pop_df["icd9_codes"]]
     synth_codes = [json.loads(v) for v in synth_df["icd9_codes"]]
+    if keep_codes is not None:
+        pop_codes = [[c for c in row if c in keep_codes] for row in pop_codes]
+        synth_codes = [[c for c in row if c in keep_codes] for row in synth_codes]
     mlb = MultiLabelBinarizer(sparse_output=False)
     mlb.fit(pop_codes + synth_codes)
     a = mlb.transform(pop_codes).astype(float)
