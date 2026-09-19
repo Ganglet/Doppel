@@ -110,6 +110,22 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-014 — Evaluation output is contract JSON from `eval_runner.py`, scored against real train
+**Decision:** `eval_runner.py` scores one synthetic CSV and writes `results/<generator>_seed<n>.json` in the shape of `contracts/schemas/evaluation_result.schema.json`, validating it before writing. Fidelity is measured against real **train**; utility and attribute inference test on the real holdout. `results/` is gitignored and regenerated from the seed, like synthetic CSVs (ADR-008).
+**Why:** The schema forbids extra top-level keys, so everything lives under `metrics.fidelity`, `metrics.utility` and `metrics.privacy`. Train is what the generator was fit on, so it is the right reference for "does the model reproduce its training distribution"; real-vs-holdout is only the sampling-noise floor.
+**Impact:** Track 4's aggregation reads these files. Numbers in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) are not comparable to the earlier fidelity numbers in [`fidelity_result.md`](fidelity_result.md), which used the holdout as the reference.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
+### ADR-015 — Fidelity correlation and utility thresholds replaced by noise-floor references
+**Decision:** The absolute correlation thresholds (0.10 / 0.20) and the "TSTR within 0.10 of TRTR" utility threshold in [`eval_protocol.md`](../eval_protocol.md) are dropped. Correlation is reported against the real-vs-real floor (0.203) and the `independent_marginals` baseline (0.163). Utility is reported as mean ± sd over 20 seeds, compared by Welch test.
+**Why:** Real train vs holdout already scores 0.203, so no generator could pass the correlation threshold against the holdout, and the seed sd of TSTR (0.15 to 0.22) is bigger than the 0.10 utility threshold. A threshold below the noise floor decides pass/fail by the seed. This follows Track 1's caveats 2 and 3 in [`baseline_generator_result.md`](baseline_generator_result.md), which I checked and agree with.
+**Impact:** Nothing is gated on correlation or utility until a larger holdout exists. The JSD threshold (0.10 / 0.20) stays, because generators land at 0.018 against a floor of 0.099.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
@@ -160,3 +176,19 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Problem:** Track 3's Phase 1 branch was named `track3-data-prep`, missing the phase number required by ADR-006. It was also briefly set as the repository's default branch instead of `main`.
 **Fix:** The default branch was reset to `main`, and the branch was renamed on GitHub to `track3-phase1-data-prep`. It had no open PRs and was already fully merged into `main`. To update a local clone: `git branch -m track3-data-prep track3-phase1-data-prep && git fetch origin && git branch -u origin/track3-phase1-data-prep track3-phase1-data-prep`.
 **Lesson:** Check branch name and default-branch settings when opening the first PR from a track, before other tracks start branching.
+
+---
+
+### P-007 — Binary columns always scored JSD 0 in `fidelity_metrics.py`
+**Week/Date:** 2026-09-19 (found by Track 1 on 2026-09-18, in `baseline_generator_result.md`)
+**Problem:** `hospital_expire_flag` and `readmit_30d` went through 10-quantile binning. With only the values {0, 1} the bin edges collapse to one bin, so JSD was 0.0000 whatever the positive rate. Train mortality 36.2% vs holdout 17.1% scored 0.0000. `age_89_plus` was in neither column list, so it wasn't scored at all. My note in [`fidelity_result.md`](fidelity_result.md) that the 0.0000 came from similar positive rates was wrong.
+**Fix:** Added `BINARY_COLS` (`hospital_expire_flag`, `readmit_30d`, `age_89_plus`) and routed them through the categorical path. They now score 0.0340, 0.0038 and 0.0112 on train vs holdout, and the first two match Track 1's independent calculation. The fidelity report covers 52 columns instead of 49.
+**Lesson:** A metric that returns exactly 0.0000 on a column with a known distribution shift is a bug until proven otherwise. I explained the zero away instead of checking it.
+
+---
+
+### P-008 — Copula seed-42 utility differs between two machines (open)
+**Week/Date:** 2026-09-19
+**Problem:** For `gaussian_copula` seed 42, Track 1 reports TSTR 0.356 (LR) and 0.724 (RF). I get 0.931 and 0.672, reproducibly on my machine, through both `eval_runner.py` and a direct `utility_eval.tstr_eval` call. `utility_eval.py` is unchanged on `main`. Mean JSD agrees (0.0189 vs 0.016).
+**Fix:** None yet. The cause is not confirmed. Different library versions changing the sampled rows is a candidate, but that is a guess. My versions: Python 3.11.9, numpy 2.4.6, scikit-learn 1.8.0, scipy 1.17.1.
+**Lesson:** "Identical SHA-256 on rerun" only shows determinism on one machine. Pin dependency versions in the Track 4 image and re-check that a seed reproduces inside it. This also supports ADR-012: a single-seed number can't be compared across machines.
