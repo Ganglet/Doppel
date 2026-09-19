@@ -64,7 +64,7 @@ Two points from the sources bear directly on this project:
 
 | Issue | Source | Consequence for reporting |
 |---|---|---|
-| Average-case accuracy or AUROC can hide attacks that are confident on a few records | Carlini et al. [4] | Report true-positive rate at a low false-positive rate as well |
+| Existing evaluation metrics are inadequate, and attack power is measured at low false-positive rates | Carlini et al. [4] | Report true-positive rate at a low false-positive rate as well *(my reading: average-case AUROC can hide a confident attack on a few records)* |
 | Scores depend on how hard each record is | Watson et al. [5] adjust scores by per-sample difficulty; Chen et al. [9] also propose a calibration technique | Read an attack against a known ceiling and floor, not on its own |
 | A distance score needs a reference for "no memorization" | Platzer and Reutterer [11] | Their reference is a holdout set, about 50% |
 | A few vulnerable records can matter more than the average | Meeus et al. [14], Ganev and De Cristofaro [16] | Look at which records leak, not only the mean |
@@ -99,7 +99,7 @@ Two points from the sources bear directly on this project:
 
 Not yet implemented, in the order I would do them:
 
-1. **True-positive rate at low false-positive rate.** Carlini et al. [4] argue this is the right metric and Doppel reports AUROC only. With 47 non-members per shadow world the smallest non-zero false-positive rate is about 2%, so any figure would be coarse. Worth adding with that caveat stated.
+1. **True-positive rate at low false-positive rate.** Carlini et al. [4] argue existing evaluation metrics are inadequate and report attack power at low false-positive rates, and Doppel reports AUROC only. With 47 non-members per shadow world the smallest non-zero false-positive rate is about 2%, so any figure would be coarse. Worth adding with that caveat stated.
 2. **Per-record vulnerability.** [14] and [16] point at individual records. The `codes_once` result suggests which records to look at, and no per-record report exists yet.
 3. **A density-based attack.** DOMIAS [12] uses a reference density to correct for records in dense regions, which is close to the holdout confound Doppel hit. It needs a usable reference density, which 94 rows may not support.
 4. **A release-only attacker.** [15] removes the auxiliary-data assumption. Doppel's shadow-world sets make the attacker stronger than that.

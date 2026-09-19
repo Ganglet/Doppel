@@ -82,6 +82,12 @@ diagnostic attacks (`codes_once`, `codes_repeated`) use train code frequencies a
 so they locate a leak but are not scored. See
 [`docs/membership_calibration_result.md`](docs/membership_calibration_result.md).
 
+**Literature basis:** [`docs/membership_inference_survey.md`](docs/membership_inference_survey.md) places these attacks
+in the distance-to-closest-record family used by the SynthEHRella and Nature Communications EHR benchmarks and
+lists five gaps against the literature (no true-positive rate at low false-positive rate, no per-record report,
+no density-based attack, a stronger attacker than release-only, and wording: an AUROC near 0.5 means the attacks
+found nothing, not that the data is safe).
+
 ### Attribute inference (implemented, `attribute_inference.py`)
 An attacker trained on the synthetic data predicts a withheld attribute from every other column. It is
 scored on the real train rows (members) and the real holdout rows (non-members) separately, as balanced

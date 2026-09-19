@@ -79,5 +79,6 @@ No flags, no config files. Each script's `main()` is the reference invocation. T
 | Membership-inference module | `membership_inference.py` |
 | Attribute-inference module | `attribute_inference.py` |
 | Downstream utility label | `hospital_expire_flag` |
+| Membership-inference survey | [`membership_inference_survey.md`](membership_inference_survey.md): 18 checked sources, and five gaps against the literature (completed in Phase 2) |
 | Result writeups | [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) (all stand-in runs) |
 | Phase 2 | [`B2_eval_runner.md`](B2_eval_runner.md) |

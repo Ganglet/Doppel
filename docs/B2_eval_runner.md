@@ -72,7 +72,7 @@ Copula seed-42 output changes with the numpy build, and TSTR moves from 0.931 to
 - CTGAN/TVAE and the diffusion model are not evaluated because they don't exist yet. The two generators here are the statistical baseline and a no-dependence control.
 - No Pareto plot. A plot of two near-identical points says nothing, so it waits for real generators.
 - The direct attack on a generator fit on all 94 rows has no valid non-members, so its magnitude is unmeasured.
-- The literature survey of membership-inference methods promised in Phase 1 is still a method description in the protocol, not a survey with citations.
+- The five gaps the [survey](membership_inference_survey.md) found against the literature: true-positive rate at low false-positive rate, a per-record vulnerability report, a density-based attack, a release-only attacker, and the "nothing found is not safe" wording. None is implemented.
 
 ---
 
@@ -134,5 +134,6 @@ Expected: `40`, then two generators with `n_seeds=20`, then both generators on t
 | Membership calibration | [`membership_calibration_result.md`](membership_calibration_result.md): both baselines at 0.64 on ICD-9 code sets, floor 0.49 |
 | Attribute inference | [`attribute_targets_result.md`](attribute_targets_result.md): no member gap beyond the control |
 | Pareto frontier | [`pareto_result.md`](pareto_result.md): neither baseline dominates |
+| Literature survey | [`membership_inference_survey.md`](membership_inference_survey.md): 18 sources checked against their arXiv, PoPETs or PMC pages |
 | Log entries | ADR-012, ADR-014 to ADR-018 and P-007 to P-012 in [`problems_and_decisions.md`](problems_and_decisions.md) |
 | Rerun needed | when CTGAN/TVAE and the diffusion model exist |
