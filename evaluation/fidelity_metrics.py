@@ -13,10 +13,11 @@ CATEGORICAL_COLS = [
     "admission_type", "ethnicity", "first_careunit", "gender", "icd9_primary",
 ]
 
-NUMERIC_COLS = [
-    "age", "los_hospital_days", "los_icu_days", "n_diagnoses",
-    "hospital_expire_flag", "readmit_30d",
-]
+CONTINUOUS_COLS = ["age", "los_hospital_days", "los_icu_days", "n_diagnoses"]
+
+BINARY_COLS = ["hospital_expire_flag", "readmit_30d", "age_89_plus"]
+
+NUMERIC_COLS = CONTINUOUS_COLS + ["hospital_expire_flag", "readmit_30d"]
 
 
 def infer_lab_cols(df):
@@ -85,7 +86,9 @@ def run_fidelity_report(real_df, synth_df):
     lab_cols = infer_lab_cols(real_df)
     numeric_cols = NUMERIC_COLS + lab_cols
 
-    js_scores = dimension_wise_js(real_df, synth_df, CATEGORICAL_COLS, numeric_cols)
+    js_scores = dimension_wise_js(
+        real_df, synth_df, CATEGORICAL_COLS + BINARY_COLS, CONTINUOUS_COLS + lab_cols
+    )
     mean_js = float(np.mean(list(js_scores.values()))) if js_scores else float("nan")
 
     corr_diff = correlation_preservation(real_df, synth_df, numeric_cols)

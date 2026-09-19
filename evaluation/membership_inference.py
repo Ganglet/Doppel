@@ -10,13 +10,18 @@ stand-in generator here (resample + Gaussian noise) exists only to exercise this
 end-to-end before real synthetic data exists.
 """
 
+import json
+
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
 
 NUMERIC_COLS = ["age", "los_hospital_days", "los_icu_days", "n_diagnoses"]
+
+GOWER_CATEGORICAL = ["admission_type", "ethnicity", "first_careunit", "gender", "icd9_primary",
+                     "hospital_expire_flag", "readmit_30d", "age_89_plus"]
 
 
 def naive_stand_in_generator(train_df, numeric_cols, n_samples, noise_scale=0.3, seed=None):
@@ -35,8 +40,45 @@ def nearest_neighbor_distances(records, synth_matrix):
     return dists
 
 
+def codes_distances(pop_df, synth_df, keep_codes=None):
+    pop_codes = [json.loads(v) for v in pop_df["icd9_codes"]]
+    synth_codes = [json.loads(v) for v in synth_df["icd9_codes"]]
+    if keep_codes is not None:
+        pop_codes = [[c for c in row if c in keep_codes] for row in pop_codes]
+        synth_codes = [[c for c in row if c in keep_codes] for row in synth_codes]
+    mlb = MultiLabelBinarizer(sparse_output=False)
+    mlb.fit(pop_codes + synth_codes)
+    a = mlb.transform(pop_codes).astype(float)
+    b = mlb.transform(synth_codes).astype(float)
+    inter = a @ b.T
+    union = a.sum(axis=1)[:, None] + b.sum(axis=1)[None, :] - inter
+    return 1.0 - np.divide(inter, union, out=np.ones_like(inter), where=union > 0)
+
+
+def gower_distances(pop_df, synth_df):
+    # numeric columns are scaled by the range of pop_df, so score members and non-members in one call
+    lab_cols = [c for c in pop_df.columns if c.startswith("lab_")]
+    num_cols = NUMERIC_COLS + lab_cols
+    pop_num = pop_df[num_cols].to_numpy(float)
+    syn_num = synth_df[num_cols].to_numpy(float)
+    span = np.nanmax(pop_num, axis=0) - np.nanmin(pop_num, axis=0)
+    span = np.where(np.isfinite(span) & (span > 0), span, 1.0)
+
+    d_num = np.abs(pop_num[:, None, :] - syn_num[None, :, :]) / span
+    both_nan = np.isnan(pop_num)[:, None, :] & np.isnan(syn_num)[None, :, :]
+    d_num = np.where(np.isnan(d_num), np.where(both_nan, 0.0, 1.0), np.minimum(d_num, 1.0))
+    total = d_num.sum(axis=2)
+
+    for c in GOWER_CATEGORICAL:
+        total += (pop_df[c].astype(str).to_numpy()[:, None] != synth_df[c].astype(str).to_numpy()[None, :])
+
+    total += codes_distances(pop_df, synth_df)
+
+    return total / (len(num_cols) + len(GOWER_CATEGORICAL) + 1)
+
+
 def build_shadow_attack_dataset(
-    population_df, generator_fn, numeric_cols, n_shadow=10, member_frac=0.5, seed=42
+    population_df, generator_fn, numeric_cols, n_shadow=10, member_frac=0.5, seed=42, distance_fn=None
 ):
     rng = np.random.default_rng(seed)
     scaler = StandardScaler()
@@ -52,36 +94,42 @@ def build_shadow_attack_dataset(
         member_df = population_df.iloc[list(member_idx)]
 
         synth_df = generator_fn(member_df, numeric_cols, n_samples=len(member_df), seed=seed + shadow_id)
-        synth_scaled = scaler.transform(synth_df[numeric_cols])
 
-        dists = nearest_neighbor_distances(pop_scaled, synth_scaled)
+        if distance_fn is None:
+            synth_scaled = scaler.transform(synth_df[numeric_cols])
+            dists = nearest_neighbor_distances(pop_scaled, synth_scaled)
+            knn3 = None
+        else:
+            full = np.sort(distance_fn(population_df, synth_df), axis=1)
+            dists, knn3 = full[:, 0], full[:, :3].mean(axis=1)
+
         for i in range(n_pop):
-            rows.append({
-                "shadow_id": shadow_id,
-                "min_dist": dists[i],
-                "is_member": int(i in member_idx),
-            })
+            row = {"shadow_id": shadow_id, "min_dist": dists[i], "is_member": int(i in member_idx)}
+            if knn3 is not None:
+                row["knn3_dist"] = knn3[i]
+            rows.append(row)
 
     return pd.DataFrame(rows)
 
 
 def evaluate_attack(attack_df):
     aucs = []
+    features = [c for c in attack_df.columns if c not in ("shadow_id", "is_member")]
     for held_out_shadow in attack_df["shadow_id"].unique():
         train_rows = attack_df[attack_df["shadow_id"] != held_out_shadow]
         test_rows = attack_df[attack_df["shadow_id"] == held_out_shadow]
 
         model = LogisticRegression()
-        model.fit(train_rows[["min_dist"]], train_rows["is_member"])
-        preds = model.predict_proba(test_rows[["min_dist"]])[:, 1]
+        model.fit(train_rows[features], train_rows["is_member"])
+        preds = model.predict_proba(test_rows[features])[:, 1]
         aucs.append(roc_auc_score(test_rows["is_member"], preds))
 
     return {"mean_attack_auroc": float(np.mean(aucs)), "per_shadow_auroc": aucs}
 
 
-def run_membership_inference(population_df, generator_fn, numeric_cols, n_shadow=10, seed=42):
+def run_membership_inference(population_df, generator_fn, numeric_cols, n_shadow=10, seed=42, distance_fn=None):
     attack_df = build_shadow_attack_dataset(
-        population_df, generator_fn, numeric_cols, n_shadow=n_shadow, seed=seed
+        population_df, generator_fn, numeric_cols, n_shadow=n_shadow, seed=seed, distance_fn=distance_fn
     )
     return evaluate_attack(attack_df)
 

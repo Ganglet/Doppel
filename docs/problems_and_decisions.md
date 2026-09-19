@@ -110,6 +110,54 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-014 — Evaluation output is contract JSON from `eval_runner.py`, scored against real train
+**Decision:** `eval_runner.py` scores one synthetic CSV and writes `results/<generator>_seed<n>.json` in the shape of `contracts/schemas/evaluation_result.schema.json`, validating it before writing. Fidelity is measured against real **train**; utility and attribute inference test on the real holdout. `results/` is gitignored and regenerated from the seed, like synthetic CSVs (ADR-008).
+**Why:** The schema forbids extra top-level keys, so everything lives under `metrics.fidelity`, `metrics.utility` and `metrics.privacy`. Train is what the generator was fit on, so it is the right reference for "does the model reproduce its training distribution"; real-vs-holdout is only the sampling-noise floor.
+**Impact:** Track 4's aggregation reads these files. Numbers in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) are not comparable to the earlier fidelity numbers in [`fidelity_result.md`](fidelity_result.md), which used the holdout as the reference.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
+### ADR-015 — Fidelity correlation and utility thresholds replaced by noise-floor references
+**Decision:** The absolute correlation thresholds (0.10 / 0.20) and the "TSTR within 0.10 of TRTR" utility threshold in [`eval_protocol.md`](../eval_protocol.md) are dropped. Correlation is reported against the real-vs-real floor (0.203) and the `independent_marginals` baseline (0.163). Utility is reported as mean ± sd over 20 seeds, compared by Welch test.
+**Why:** Real train vs holdout already scores 0.203, so no generator could pass the correlation threshold against the holdout, and the seed sd of TSTR (0.15 to 0.22) is bigger than the 0.10 utility threshold. A threshold below the noise floor decides pass/fail by the seed. This follows Track 1's caveats 2 and 3 in [`baseline_generator_result.md`](baseline_generator_result.md), which I checked and agree with.
+**Impact:** Nothing is gated on correlation or utility until a larger holdout exists. The JSD threshold (0.10 / 0.20) stays, because generators land at 0.018 against a floor of 0.099.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
+### ADR-016 — The privacy score is the strongest realistic membership attack, read against a ceiling and floor
+**Decision:** Membership inference is run as three attacks (`numeric4`, `gower`, `icd9_codes`), and the highest mean AUROC is the generator's privacy score. Each run is read against two calibration arms from `mia_calibration.py`: an exact-copy generator (ceiling, 1.000) and real rows the generator never saw (floor, 0.49 to 0.50). The `codes_once` and `codes_repeated` attacks use train code frequencies an attacker wouldn't have, so they are diagnostics and are never scored. A band between 0.55 and 0.65 is now "review", since the original bands left it undefined.
+**Why:** The 4-column attack scored both baselines at 0.51 to 0.52, inside the "good" band, while a code-set attack scores them at 0.64. A privacy metric that reads "safe" because the attack cannot see the leak is worse than no metric.
+**Impact:** Track 4's Pareto frontier should use the max-over-attacks membership score, not `membership_inference` alone. Results JSON now carries `membership_inference` and `membership_inference_gower`; the code-set attack is in `mia_calibration.py` output, not yet in the contract JSON.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
+### ADR-017 — Attribute inference reports the member gap on attributes both splits cover
+**Decision:** Attribute inference targets `gender`, `first_careunit` and an age bucket, scores members (train) and non-members (holdout) separately with balanced accuracy minus chance, and treats the member gap as the privacy number. The ethnicity version stays in the code and results JSON but is not scored.
+**Why:** The ethnicity target had a class missing from train (P-003), and scoring only holdout rows measured general inference, which is not a privacy leak. Balanced accuracy stops a shifted class mix from faking an uplift.
+**Impact:** The results JSON carries `attribute_inference_targets` next to the old `attribute_inference`. No threshold is set, because real data barely supports inferring these attributes on unseen rows (uplift −0.120, 0.032, 0.096) and a threshold would be decided by seed noise. Track 4 should not chart the old ethnicity number.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
+### ADR-018 — The Pareto frontier uses worst-case membership risk and is bootstrapped over seeds
+**Decision:** `pareto.py` uses three axes: mean JS divergence vs train (lower), mean of the two TSTR AUROCs (higher), and `membership_worst_case` (lower, the max over the three realistic membership attacks). A generator is on the frontier if no other is at least as good on all three and strictly better on one. Frontier membership and pairwise dominance are bootstrapped over seeds, and the code-set attack is now in the results JSON.
+**Why:** A single-seed or single-attack frontier can put a signal-free generator on top (ADR-012, ADR-016). Using the worst case stops a weak attack from reading as privacy.
+**Impact:** Track 4 charts these keys, not `membership_inference` alone. Fidelity leaves out correlation, the one fidelity metric that separates the baselines, so a fourth axis may be needed. The whole evaluation, calibration and frontier must be rerun when CTGAN/TVAE and the diffusion model exist.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
+### ADR-019 — Track 2 code lives in an `evaluation/` package
+**Decision:** The nine Track 2 scripts moved from the repo root into `evaluation/`, mirroring `generators/`. They run from the repo root as `python -m evaluation.<module>` and import each other as `from evaluation.<module> import ...`.
+**Why:** The root held nine flat scripts next to every other track's files, while Track 1 already used a package. A package also lets the scripts import each other without path tricks.
+**Impact:** `python eval_runner.py` and the other old commands no longer work. Forward-looking docs (README, protocol, B1, B2, the result docs) now use the new commands. Earlier entries in this log and other tracks' docs keep the old flat paths as written, since this log is append-only. Git records the moves as renames, so file history follows. Before and after the move, regenerated `results/*.json` and `results/calibration/mia_calibration.json` were byte-identical and every script printed the same numbers. `preprocess_mimic_demo.py`, `eval_protocol.md` and `schema_and_feature_dictionary.md` stay at the root because other tracks' docs link to them.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
@@ -160,3 +208,52 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Problem:** Track 3's Phase 1 branch was named `track3-data-prep`, missing the phase number required by ADR-006. It was also briefly set as the repository's default branch instead of `main`.
 **Fix:** The default branch was reset to `main`, and the branch was renamed on GitHub to `track3-phase1-data-prep`. It had no open PRs and was already fully merged into `main`. To update a local clone: `git branch -m track3-data-prep track3-phase1-data-prep && git fetch origin && git branch -u origin/track3-phase1-data-prep track3-phase1-data-prep`.
 **Lesson:** Check branch name and default-branch settings when opening the first PR from a track, before other tracks start branching.
+
+---
+
+### P-007 — Binary columns always scored JSD 0 in `fidelity_metrics.py`
+**Week/Date:** 2026-09-19 (found by Track 1 on 2026-09-18, in `baseline_generator_result.md`)
+**Problem:** `hospital_expire_flag` and `readmit_30d` went through 10-quantile binning. With only the values {0, 1} the bin edges collapse to one bin, so JSD was 0.0000 whatever the positive rate. Train mortality 36.2% vs holdout 17.1% scored 0.0000. `age_89_plus` was in neither column list, so it wasn't scored at all. My note in [`fidelity_result.md`](fidelity_result.md) that the 0.0000 came from similar positive rates was wrong.
+**Fix:** Added `BINARY_COLS` (`hospital_expire_flag`, `readmit_30d`, `age_89_plus`) and routed them through the categorical path. They now score 0.0340, 0.0038 and 0.0112 on train vs holdout, and the first two match Track 1's independent calculation. The fidelity report covers 52 columns instead of 49.
+**Lesson:** A metric that returns exactly 0.0000 on a column with a known distribution shift is a bug until proven otherwise. I explained the zero away instead of checking it.
+
+---
+
+### P-008 — Copula seed-42 utility differs between two machines (open)
+**Week/Date:** 2026-09-19
+**Problem:** For `gaussian_copula` seed 42, Track 1 reports TSTR 0.356 (LR) and 0.724 (RF). I get 0.931 and 0.672, reproducibly on my machine, through both `eval_runner.py` and a direct `utility_eval.tstr_eval` call. `utility_eval.py` is unchanged on `main`. Mean JSD agrees (0.0189 vs 0.016).
+**Fix:** None yet. The cause is not confirmed. Different library versions changing the sampled rows is a candidate, but that is a guess. My versions: Python 3.11.9, numpy 2.4.6, scikit-learn 1.8.0, scipy 1.17.1.
+**Lesson:** "Identical SHA-256 on rerun" only shows determinism on one machine. Pin dependency versions in the Track 4 image and re-check that a seed reproduces inside it. This also supports ADR-012: a single-seed number can't be compared across machines.
+
+---
+
+### P-009 — P-008 traced to `method="eigh"` in the copula's sampler (fix proposed to Track 1)
+**Week/Date:** 2026-09-19
+**Problem:** Follow-up to P-008. Fitting and sampling `gaussian_copula` seed 42 under numpy 2.4.6 and numpy 2.2.6 (same pandas 2.3.3, scikit-learn 1.8.0, scipy 1.17.1) gives different files: 71.2% of numeric cells (3,281 of 4,606) and all 94 rows differ, and TSTR moves from 0.931 / 0.672 to 0.770 / 0.483. `independent_marginals` is byte-identical across the two versions. The fitted 110×110 correlation matrix differs by at most 1.1e-16 and the latent Z matrix is exactly equal, so the fit is not the cause. Replacing `method="eigh"` with `method="cholesky"` in `rng.multivariate_normal` (`generators/copula.py:81`) on a scratch copy gives 0 differing cells at a 1e-6 tolerance across the same two numpy versions.
+**Fix:** Not applied. `generators/` is Track 1's code, so the one-line change is proposed to Angshuman, with the caveat that it changes every copula sample (same distribution, different draws), so his 20-seed numbers would need regenerating. I have not verified which numpy version Angshuman runs. His setup pins pandas, scikit-learn and scipy but not numpy (`docs/A1_generative_modeling.md`, `docker/base/Dockerfile`), so a different build is the likely explanation for 0.356 vs 0.931, not a confirmed one. A `requirements.txt` with my tested versions is added at the repo root for Track 4 to use in the image.
+**Lesson:** Eigendecomposition-based sampling is not reproducible across numpy/LAPACK builds even with a fixed seed and a matrix equal to 1e-16, because eigenvectors are only defined up to sign and rotation within near-degenerate eigenspaces. Prefer a Cholesky factor when the matrix is positive definite, and check reproducibility across two library versions, not only across two runs on one machine.
+
+---
+
+### P-010 — The first membership attack understated leakage; found by calibrating it
+**Week/Date:** 2026-09-19
+**Problem:** The 4-numeric-column attack read 0.522 (copula) and 0.507 (independent marginals) over 20 seeds, and I wrote in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) that both sat inside the privacy band. Adding a ceiling (exact copy, 1.000) and floor (never-seen real rows, 0.502) showed the attack had almost no room to detect anything on those columns, and an attack on ICD-9 code sets reads 0.639 and 0.638. Splitting the codes by train frequency gives 0.84 on the 286 codes seen once and 0.62 on the 197 seen 2+ times. A direct check on the real synthetic files was confounded: against all 35 holdout rows the Gower score read 0.62 to 0.65 but fell to 0.47 to 0.49 without the 15 Puerto Rican rows, because those rows are absent from train (P-003).
+**Fix:** Added the Gower and code-set attacks, the calibration script, and the direct-check script; corrected the baseline writeup and rewrote the protocol's privacy section (ADR-016). The mechanism (a generator can only emit codes it saw, so a non-member's unique code never appears) fits the data but is untested against a generator that suppresses rare codes.
+**Lesson:** An attack needs a known ceiling and floor before its output means anything. A score near 0.5 says "the attack found nothing", which is a claim about the attack until it has been shown to find something on a generator that leaks.
+
+---
+
+### P-011 — The member gap is biased by how the member and non-member sets differ
+**Week/Date:** 2026-09-19
+**Problem:** On `gender`, `independent_marginals` shows a member gap of 0.062 (one-sample p = 0.007) even though it destroys every cross-column relationship and cannot support attribute inference. The copula shows 0.056. The cause is the sets, not the generator: train is 47 F / 47 M and the 35-row holdout is 12 F / 23 M, so balanced accuracy on non-members drops for reasons unrelated to membership. The same set mismatch confounded the direct membership check (P-010).
+**Fix:** None possible without a holdout that matches train. Each generator's gap is read against `independent_marginals` rather than against zero, and the writeup says so.
+**Lesson:** Any "members vs non-members" comparison needs a null arm run through the same two sets. A gap that a no-dependence generator reproduces is a property of the split.
+
+---
+
+### P-012 — Members and non-members were scored on different Gower scales
+**Week/Date:** 2026-09-19
+**Problem:** My rewrite of `mia_direct_check.py` gave Gower AUROCs of 0.816 to 0.833 against 0.62 to 0.65 in the version it replaced, while the code-set numbers matched exactly. That split pointed at the one attack that has a scale. `gower_distances` divides each numeric column by the range of the rows it is given, and the rewrite scored train and holdout in separate calls, so holdout rows were measured on a different scale and looked systematically farther away.
+**Fix:** Score members and non-members in one call (`pooled_scores` in `mia_direct_check.py`), which reproduces the earlier 0.622 and 0.648, and add a comment on `gower_distances`. The shadow-model attack was never affected because it scores one fixed population against each shadow generator.
+**Lesson:** When a rewrite agrees with the old version for one attack and not the other, find what differs before trusting either number. A distance that normalises by its input is only comparable inside one call.
+

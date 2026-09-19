@@ -36,3 +36,4 @@ __pycache__/
 
 # Track 1: regenerated from the seed, see ADR-008
 output/synthetic/
+results/

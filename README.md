@@ -35,10 +35,10 @@ flowchart LR
     end
 
     subgraph T2["Track 2 — Evaluation (done, self-tested)"]
-        CLEAN -- holdout split --> FID["fidelity_metrics.py"]
-        CLEAN -- "train split (stand-in)" --> UTIL["utility_eval.py"]
-        CLEAN -- "train split (stand-in)" --> MIA["membership_inference.py"]
-        CLEAN -- "train split (stand-in)" --> ATTR["attribute_inference.py"]
+        CLEAN -- holdout split --> FID["evaluation/fidelity_metrics.py"]
+        CLEAN -- "train split (stand-in)" --> UTIL["evaluation/utility_eval.py"]
+        CLEAN -- "train split (stand-in)" --> MIA["evaluation/membership_inference.py"]
+        CLEAN -- "train split (stand-in)" --> ATTR["evaluation/attribute_inference.py"]
         SYN -. "real input, pending" .-> FID
         SYN -.-> UTIL
         SYN -.-> MIA
@@ -170,30 +170,43 @@ Gaussian copula and the independent-marginals reference floor, fit on the 94 tra
 
 ```
 .
-├── Doppel_Blueprint.pdf              # original project spec: architecture, phases, tracks
-├── preprocess_mimic_demo.py          # Track 3: raw MIMIC-III Demo CSVs -> cleaned admission-level dataset
-├── schema_and_feature_dictionary.md  # Track 3: data schema, feature dictionary, known data-quality issues
-├── eval_protocol.md                  # Track 2: fidelity/utility/privacy formulas and thresholds
-├── fidelity_metrics.py               # Track 2: JS divergence, correlation preservation, KS tests
-├── utility_eval.py                   # Track 2: train-on-synthetic / test-on-real utility pipeline
-├── membership_inference.py           # Track 2: shadow-model membership-inference attack
-├── attribute_inference.py            # Track 2: attribute-inference attack
+├── evaluation/                       # Track 2: fidelity, utility and privacy evaluation
+│   ├── fidelity_metrics.py           #   JS divergence, correlation preservation, KS tests
+│   ├── utility_eval.py               #   train-on-synthetic / test-on-real utility pipeline
+│   ├── membership_inference.py       #   shadow-model membership attacks (numeric, Gower, ICD-9 codes)
+│   ├── attribute_inference.py        #   attribute-inference attack, reported as a member gap
+│   ├── eval_runner.py                #   scores one synthetic CSV, writes contract JSON to results/
+│   ├── summarize_results.py          #   mean +/- sd per generator over seeds
+│   ├── pareto.py                     #   fidelity / utility / privacy Pareto frontier
+│   ├── mia_calibration.py            #   ceiling and floor controls for the membership attack
+│   └── mia_direct_check.py           #   direct attack on the synthetic files, with intervals
 ├── generators/                       # Track 1: generator contract, shared codec, validator, baselines
 │   ├── codec.py                      #   real CSV <-> the 110-column modeling frame all generators share
 │   ├── copula.py                     #   Gaussian copula baseline + independent-marginals floor
 │   ├── validate.py                   #   Stage 2 output-contract checker
 │   └── generate.py                   #   Stage 2 entry point (fit, sample, decode, validate, write)
+├── preprocess_mimic_demo.py          # Track 3: raw MIMIC-III Demo CSVs -> cleaned admission-level dataset
+├── schema_and_feature_dictionary.md  # Track 3: data schema, feature dictionary, known data-quality issues
+├── contracts/                        # Track 4: integration contracts and JSON schemas between stages
+├── docker/                           # Track 4: base image and smoke test
+├── k8s/                              # Track 4: namespace and smoke-test Job
+├── docs/                             # component docs (A1, B1, B2, C1), result docs, problems_and_decisions.md
 ├── output/
 │   ├── mimic_demo_clean.csv          # cleaned dataset (129 admissions x 56 cols)
 │   ├── icd9_lookup.csv               # ICD-9 code -> description lookup (14,567 codes)
 │   ├── lab_item_lookup.csv           # lab item ID -> name lookup (top 20 labs)
 │   └── synthetic/                    # generator output + manifests (regenerated from seed, not committed)
+├── results/                          # evaluation JSON per generator and seed (regenerated, not committed)
+├── eval_protocol.md                  # Track 2: fidelity/utility/privacy formulas and thresholds
+├── requirements.txt                  # pinned dependency versions
+├── Doppel_Blueprint.pdf              # original project spec: architecture, phases, tracks
+│   (and Doppel_Blueprint.docx)
 ├── LICENSE                           # MIT, for the code
 ├── DATA_LICENSE.md                   # ODbL 1.0, for MIMIC-III-derived data
 └── .gitignore                        # excludes raw MIMIC-III source tables, venv, generated data
 ```
 
-Track 4 (`orchestration/`, `dashboard/`) directories don't exist yet — they'll be added when that work starts.
+Track 4's multi-stage pipeline wiring and dashboard don't exist yet; `docker/`, `k8s/` and `contracts/` hold the Phase 1 environment and contracts only. Run every evaluation script from the repo root as `python -m evaluation.<module>`.
 
 ---
 
@@ -204,12 +217,12 @@ The cleaned dataset is already committed, so you can see real evaluation output 
 ```bash
 git clone https://github.com/Ganglet/Doppel.git
 cd Doppel
-pip install pandas==2.3.3 numpy scikit-learn==1.8.0 scipy==1.17.1
+pip install -r requirements.txt
 
-python fidelity_metrics.py       # JS divergence / correlation / KS report
-python utility_eval.py           # TRTR vs TSTR AUROC
-python membership_inference.py   # shadow-model attack sanity check
-python attribute_inference.py    # attribute-inference attack
+python -m evaluation.fidelity_metrics       # JS divergence / correlation / KS report
+python -m evaluation.utility_eval           # TRTR vs TSTR AUROC
+python -m evaluation.membership_inference   # shadow-model attack sanity check
+python -m evaluation.attribute_inference    # attribute-inference attack
 
 python -m generators.generate --generator gaussian_copula --seed 42   # statistical baseline
 python -m generators.validate output/synthetic/gaussian_copula_seed42.csv
