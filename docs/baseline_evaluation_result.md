@@ -12,11 +12,11 @@ What this does not show:
 
 - **Neither generator is a real contender.** Both sample empirical marginals; `independent_marginals` has no feature dependence at all and exists as a floor. CTGAN/TVAE and the diffusion model don't exist yet, so nothing here says anything about the project's actual comparison.
 - **The holdout is very small.** 6 positives, all among the 20 non-Puerto-Rican rows (see [`baseline_generator_result.md`](baseline_generator_result.md)). Utility differences of 0.1 are inside one standard deviation.
-- **The membership attack sees 4 numeric columns only** (`age`, `los_hospital_days`, `los_icu_days`, `n_diagnoses`). It has power in principle (0.82 against a memorizing stand-in, see [`membership_inference_result.md`](membership_inference_result.md)), but it does not look at labs, codes or categoricals.
+- **The membership numbers depend on which attack is run.** The original attack sees 4 numeric columns and reads 0.51 to 0.52. Attacks on all columns and on ICD-9 code sets read 0.55 to 0.64 and are calibrated against a ceiling and floor in [`membership_calibration_result.md`](membership_calibration_result.md). All are shadow-model AUROCs, a proxy for attacking the real synthetic files.
 - **p-values here are over generator seeds on one fixed dataset and holdout.** They say nothing about a different sample of patients, and the five tests are not corrected for multiple comparisons.
 - **Not reproduced across machines.** Track 1 reports copula seed-42 TSTR of 0.356 (LR) and 0.724 (RF); I get 0.931 and 0.672 for the same seed with the same `utility_eval.py`, and I get the same numbers on rerun. Fidelity agrees closely (JSD 0.0189 vs 0.016). The copula's output depends on the numpy build, traced to `method="eigh"` in its sampler (P-008 and P-009 in [`problems_and_decisions.md`](problems_and_decisions.md)); which numpy Track 1 ran is unconfirmed. My environment is Python 3.11.9, numpy 2.4.6, scikit-learn 1.8.0, scipy 1.17.1.
 
-**Honest phrasing for the report: "the harness runs end to end on real synthetic data and separates a signal-free generator from a dependence-preserving one only weakly; the baselines are not distinguishable on fidelity marginals, borderline on utility, and both sit inside the privacy band."**
+**Honest phrasing for the report: "the harness runs end to end on real synthetic data and separates a signal-free generator from a dependence-preserving one only weakly; the baselines are not distinguishable on fidelity marginals, borderline on utility, and a 4-column membership attack shows no leak while attacks on all columns and on ICD-9 code sets do (0.58 and 0.64 for the copula)."**
 
 ---
 
@@ -29,7 +29,9 @@ What this does not show:
 | KS pass fraction | 0.9989 ± 0.0049 | 1.0000 ± 0.0000 | | |
 | TSTR AUROC, logistic regression | 0.628 ± 0.219 | 0.493 ± 0.196 | 0.046 | TRTR 0.578 |
 | TSTR AUROC, random forest | 0.621 ± 0.149 | 0.480 ± 0.174 | 0.009 | TRTR 0.737 |
-| Membership inference AUROC | 0.522 ± 0.027 | 0.507 ± 0.034 | 0.121 | protocol band 0.45 to 0.55 |
+| Membership AUROC, 4 numeric columns | 0.522 ± 0.027 | 0.507 ± 0.034 | 0.121 | protocol band 0.45 to 0.55 |
+| Membership AUROC, Gower (all columns) | 0.583 ± 0.021 | 0.551 ± 0.030 | 0.0004 | floor 0.503 |
+| Membership AUROC, ICD-9 code sets | 0.639 ± 0.016 | 0.638 ± 0.016 | | floor 0.489, fail line 0.65 |
 | Attribute inference uplift | 0.0000 ± 0.0000 | 0.0000 ± 0.0000 | | see P-003 |
 
 Reading it:
@@ -39,7 +41,7 @@ Reading it:
 | Do the generators differ on marginal fidelity? | No. Both copy empirical marginals, so both sit near 0.018. |
 | Does the copula preserve more correlation? | Yes, but by 0.027 out of a noise floor of 0.203. It is a real difference and a small one. |
 | Does the copula preserve more utility signal? | Probably, at about 0.14 AUROC higher, but the p-values are 0.046 and 0.009 before correction and the seed sd is 0.15 to 0.22. Suggestive, not established. |
-| Is either generator outside the privacy band? | No. The copula's 0.522 is small but differs from 0.5 (one-sample p = 0.002); `independent_marginals` at 0.507 does not (p = 0.40). |
+| Is either generator outside the privacy band? | On the 4-column attack no (copula 0.522, one-sample p = 0.002; independent 0.507, p = 0.40). On the stronger attacks yes: Gower reads 0.583 and 0.551, and ICD-9 code sets read 0.639 and 0.638, close to the 0.65 fail line. The 4-column result understated the leak; see [`membership_calibration_result.md`](membership_calibration_result.md). |
 | Is the attribute-inference result informative? | No. Uplift is 0.0000 for every seed because the attacker never sees the Puerto Rican class in training (P-003). |
 
 ---

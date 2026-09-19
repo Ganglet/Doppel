@@ -126,6 +126,14 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-016 — The privacy score is the strongest realistic membership attack, read against a ceiling and floor
+**Decision:** Membership inference is run as three attacks (`numeric4`, `gower`, `icd9_codes`), and the highest mean AUROC is the generator's privacy score. Each run is read against two calibration arms from `mia_calibration.py`: an exact-copy generator (ceiling, 1.000) and real rows the generator never saw (floor, 0.49 to 0.50). The `codes_once` and `codes_repeated` attacks use train code frequencies an attacker wouldn't have, so they are diagnostics and are never scored. A band between 0.55 and 0.65 is now "review", since the original bands left it undefined.
+**Why:** The 4-column attack scored both baselines at 0.51 to 0.52, inside the "good" band, while a code-set attack scores them at 0.64. A privacy metric that reads "safe" because the attack cannot see the leak is worse than no metric.
+**Impact:** Track 4's Pareto frontier should use the max-over-attacks membership score, not `membership_inference` alone. Results JSON now carries `membership_inference` and `membership_inference_gower`; the code-set attack is in `mia_calibration.py` output, not yet in the contract JSON.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
@@ -200,4 +208,12 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Problem:** Follow-up to P-008. Fitting and sampling `gaussian_copula` seed 42 under numpy 2.4.6 and numpy 2.2.6 (same pandas 2.3.3, scikit-learn 1.8.0, scipy 1.17.1) gives different files: 71.2% of numeric cells (3,281 of 4,606) and all 94 rows differ, and TSTR moves from 0.931 / 0.672 to 0.770 / 0.483. `independent_marginals` is byte-identical across the two versions. The fitted 110×110 correlation matrix differs by at most 1.1e-16 and the latent Z matrix is exactly equal, so the fit is not the cause. Replacing `method="eigh"` with `method="cholesky"` in `rng.multivariate_normal` (`generators/copula.py:81`) on a scratch copy gives 0 differing cells at a 1e-6 tolerance across the same two numpy versions.
 **Fix:** Not applied. `generators/` is Track 1's code, so the one-line change is proposed to Angshuman, with the caveat that it changes every copula sample (same distribution, different draws), so his 20-seed numbers would need regenerating. I have not verified which numpy version Angshuman runs. His setup pins pandas, scikit-learn and scipy but not numpy (`docs/A1_generative_modeling.md`, `docker/base/Dockerfile`), so a different build is the likely explanation for 0.356 vs 0.931, not a confirmed one. A `requirements.txt` with my tested versions is added at the repo root for Track 4 to use in the image.
 **Lesson:** Eigendecomposition-based sampling is not reproducible across numpy/LAPACK builds even with a fixed seed and a matrix equal to 1e-16, because eigenvectors are only defined up to sign and rotation within near-degenerate eigenspaces. Prefer a Cholesky factor when the matrix is positive definite, and check reproducibility across two library versions, not only across two runs on one machine.
+
+---
+
+### P-010 — The first membership attack understated leakage; found by calibrating it
+**Week/Date:** 2026-09-19
+**Problem:** The 4-numeric-column attack read 0.522 (copula) and 0.507 (independent marginals) over 20 seeds, and I wrote in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) that both sat inside the privacy band. Adding a ceiling (exact copy, 1.000) and floor (never-seen real rows, 0.502) showed the attack had almost no room to detect anything on those columns, and an attack on ICD-9 code sets reads 0.639 and 0.638. Splitting the codes by train frequency gives 0.84 on the 286 codes seen once and 0.62 on the 197 seen 2+ times. A direct check on the real synthetic files was confounded: against all 35 holdout rows the Gower score read 0.62 to 0.65 but fell to 0.47 to 0.49 without the 15 Puerto Rican rows, because those rows are absent from train (P-003).
+**Fix:** Added the Gower and code-set attacks, the calibration script, and the direct-check script; corrected the baseline writeup and rewrote the protocol's privacy section (ADR-016). The mechanism (a generator can only emit codes it saw, so a non-member's unique code never appears) fits the data but is untested against a generator that suppresses rare codes.
+**Lesson:** An attack needs a known ceiling and floor before its output means anything. A score near 0.5 says "the attack found nothing", which is a claim about the attack until it has been shown to find something on a generator that leaks.
 

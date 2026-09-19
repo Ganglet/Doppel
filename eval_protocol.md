@@ -69,7 +69,18 @@ Shadow-model attack (Shokri et al. style):
 4. Evaluate the attack's AUROC against the real target generator/classifier.
 
 **Threshold:** attack AUROC within 0.05 of 0.50 (i.e. 0.45–0.55) = good privacy (attacker is close to
-random guessing). AUROC ≥ 0.65 = fail (meaningful membership leakage).
+random guessing). AUROC ≥ 0.65 = fail (meaningful membership leakage). Between 0.55 and 0.65 = review, not
+pass or fail.
+
+**Revision (2026-09-19):** the attack is now run three ways, and the **strongest realistic attack is the
+privacy score**: nearest-neighbour distance on 4 numeric columns (`numeric4`), Gower distance over all 53
+features (`gower`), and Jaccard distance on ICD-9 code sets (`icd9_codes`). The 4-column attack alone read
+0.51 to 0.52 for both baselines while the code-set attack reads 0.64, so it cannot be the only attack.
+Every run is read against two calibration anchors from `mia_calibration.py`: an exact-copy generator
+(ceiling, 1.000) and real rows the generator never saw (floor, 0.49 to 0.50, seed sd about 0.03). Two
+diagnostic attacks (`codes_once`, `codes_repeated`) use train code frequencies an attacker would not have,
+so they locate a leak but are not scored. See
+[`docs/membership_calibration_result.md`](docs/membership_calibration_result.md).
 
 ### Attribute inference (implemented — `attribute_inference.py`)
 Given a partial record (subset of known attributes), attempt to reconstruct a withheld sensitive

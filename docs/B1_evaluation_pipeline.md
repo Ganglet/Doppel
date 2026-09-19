@@ -46,6 +46,10 @@ Because a distance-based membership attack has no ground truth to check itself a
 # Setup
 pip install pandas==2.3.3 numpy scikit-learn==1.8.0 scipy==1.17.1
 
+# Membership attack ceiling/floor controls, and the direct check on real synthetic files
+python mia_calibration.py
+python mia_direct_check.py
+
 # Score one synthetic dataset, write results/<generator>_seed<n>.json (contract JSON)
 python eval_runner.py --generator gaussian_copula --seed 42
 
@@ -85,5 +89,6 @@ No flags, no config files — each script's `main()` is the reference invocation
 | Membership-inference module | `membership_inference.py` |
 | Attribute-inference module | `attribute_inference.py` |
 | Evaluation runner (contract JSON) | `eval_runner.py`, `summarize_results.py` |
+| Membership attack calibration | `mia_calibration.py`, `mia_direct_check.py` |
 | Downstream utility label | `hospital_expire_flag` |
-| Result writeups | [`baseline_evaluation_result.md`](baseline_evaluation_result.md), [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |
+| Result writeups | [`membership_calibration_result.md`](membership_calibration_result.md), [`baseline_evaluation_result.md`](baseline_evaluation_result.md), [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |
