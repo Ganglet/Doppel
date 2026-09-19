@@ -18,8 +18,12 @@ import pandas as pd
 from attribute_inference import run_attribute_inference
 from fidelity_metrics import run_fidelity_report
 from generators import schema as S
-from generators.generate import run as run_generator
+from generators.codec import FrameCodec
+from generators.generate import GENERATORS, run as run_generator
+from membership_inference import NUMERIC_COLS, run_membership_inference
 from utility_eval import utility_gap_report
+
+N_SHADOW = 8
 
 RESULTS_DIR = Path("results")
 SCHEMA_PATH = Path("contracts/schemas/evaluation_result.schema.json")
@@ -44,6 +48,17 @@ def load_synthetic(generator, seed):
     return pd.read_csv(path)
 
 
+def real_generator_fn(name, min_count=5):
+    def generate(member_df, numeric_cols, n_samples, seed):
+        fit_rng, sample_rng, decode_rng = (np.random.default_rng(s) for s in np.random.SeedSequence(seed).spawn(3))
+        member_df = member_df.reset_index(drop=True)
+        codec = FrameCodec(min_count=min_count).fit(member_df)
+        model = GENERATORS[name]().fit(codec.encode(member_df), codec.spec, fit_rng)
+        return codec.decode(model.sample(n_samples, sample_rng), decode_rng)
+
+    return generate
+
+
 def evaluate(generator, seed):
     real = S.load_real()
     train = real[real[S.SPLIT_COL] == S.TRAIN_SPLIT].reset_index(drop=True)
@@ -55,6 +70,9 @@ def evaluate(generator, seed):
         fidelity = run_fidelity_report(train, synth)
         utility = utility_gap_report(train, holdout, synth)
         attribute = run_attribute_inference(synth, holdout)
+        membership = run_membership_inference(
+            train, real_generator_fn(generator), NUMERIC_COLS, n_shadow=N_SHADOW, seed=seed
+        )
 
     return {
         "run_id": f"{generator}_seed{seed}",
@@ -62,7 +80,7 @@ def evaluate(generator, seed):
         "metrics": _plain({
             "fidelity": fidelity,
             "utility": utility,
-            "privacy": {"attribute_inference": attribute},
+            "privacy": {"attribute_inference": attribute, "membership_inference": {**membership, "n_shadow": N_SHADOW}},
         }),
     }
 
