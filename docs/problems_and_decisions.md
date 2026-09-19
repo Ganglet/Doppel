@@ -62,6 +62,54 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-008 — One shared codec and a validated output contract for all generators
+**Decision:** Every generator fits on the same 110-column modeling frame built by `generators/codec.py` and is decoded by the same code. Output goes through `generators/validate.py` before it's written, and a failing file is never written. Each run writes a manifest (seed, hyperparameters, training-CSV SHA-256, git commit). Synthetic CSVs are regenerated from the seed, not committed.
+**Why:** The blueprint's claim is comparability. If each generator preprocessed the data its own way, a fidelity gap could come from encoding choices rather than the model. Committed synthetic files would go stale every time the codec changed, and they regenerate in about a second.
+**Impact:** Track 2 can rely on the contract in [`A1_generative_modeling.md`](A1_generative_modeling.md) for any generator's output. Track 4's generation Job is `python -m generators.generate --generator <name> --seed <seed>`, and a non-zero exit means no file was produced. CTGAN/TVAE and the diffusion model plug in by subclassing `Generator`.
+**Branch:** `track1-phase1-generator-interface`
+
+---
+
+### ADR-009 — ICD-9 codes: primary as categorical, frequent secondaries as multi-hot, the rest as a marginal tail
+**Decision:** `icd9_primary` is a categorical column. Secondary codes in ≥ 5 train admissions (55 codes, 49% of secondary mentions) become multi-hot columns. The other 395 form a tail pool, where only the per-admission count is modeled and codes are drawn by train frequency on decode, independently of the row. `n_diagnoses` is derived from the decoded list.
+**Why:** The blueprint names rare, high-dimensional codes as the hard case, so dropping `icd9_codes` would drop the problem. Codes seen in fewer than 5 of 94 admissions are individual records, not patterns. Modeling their combinations jointly is memorization, and those combinations are what re-identify a patient. Deriving `n_diagnoses` means the count can't contradict the list.
+**Impact:** Synthetic `icd9_codes` preserve the frequent-code structure and the code-count distribution, but not rare-code co-occurrence. Code order after the primary isn't modeled. `min_count` is a CLI flag, and sweeping it is the Phase 3 rare-code ablation. Track 2's fidelity currently excludes `icd9_codes`, so a set-overlap metric is needed to score this.
+**Branch:** `track1-phase1-generator-interface`
+
+---
+
+### ADR-010 — Statistical baseline is a Gaussian copula with Ledoit-Wolf shrinkage; independent marginals is the reference floor
+**Decision:** The blueprint's statistical baseline is a Gaussian copula over empirical marginals, with the latent correlation shrunk toward the identity at the Ledoit-Wolf intensity. `independent_marginals` (shrinkage fixed at 1) ships as a reference floor, not as one of the three benchmarked families.
+**Why:** 110 modeled columns vs 94 rows makes the empirical correlation matrix singular. Shrinkage keeps the copula well-defined, and Ledoit-Wolf picks the intensity from the data instead of a hand-set constant (fitted: 0.668). The floor makes every other number interpretable. A generator that can't beat exact marginals with zero dependence isn't learning structure.
+**Impact:** The copula beats the floor on correlation preservation vs train (0.139 vs 0.160), but not by a margin that survives seed noise on utility. See [`baseline_generator_result.md`](baseline_generator_result.md).
+**Branch:** `track1-phase1-generator-interface`
+
+---
+
+### ADR-011 — Synthetic patients are single-admission, with surrogate IDs outside MIMIC-III's ranges
+**Decision:** Each synthetic row is its own patient. `subject_id` starts at 10,000,000, `hadm_id` at 20,000,000, and `split` is `"synthetic"`. `readmit_30d` is generated as a plain binary attribute.
+**Why:** Emitting real IDs would be a direct privacy leak and would silently corrupt any join. Modeling multi-admission patients from 100 real patients isn't feasible, so the admission-level grain from Track 3 is kept.
+**Impact:** The validator rejects any ID that collides with a real one. In synthetic data `readmit_30d` isn't backed by a second admission, which matters only if someone tries to re-derive it.
+**Branch:** `track1-phase1-generator-interface`
+
+---
+
+### ADR-012 — Generators are reported as mean ± sd over seeds, never from a single seed
+**Decision (Track 1, proposed to Track 2 for the evaluation protocol):** Every generator is run over multiple seeds (20 in the baseline result), and every metric is reported as mean ± sd.
+**Why:** On this holdout, TSTR AUROC for one generator varies with SD ≈ 0.2 across seeds. Seed 42 of `independent_marginals`, which has zero feature-label dependence by construction, scored 0.713 / 0.784, above the TRTR ceiling, while its 20-seed mean sits at chance (0.47 / 0.54). The holdout's 6 positives all fall in 20 of its 35 rows, which is where the noise comes from.
+**Impact:** A single-seed number can put a signal-free generator above the real-data ceiling, so single-seed numbers don't go in the report or on the Pareto frontier. The "TSTR within 0.10 of TRTR" threshold in [`eval_protocol.md`](../eval_protocol.md) is smaller than one seed's noise and needs to be read against the seed spread.
+**Branch:** `track1-phase1-generator-interface`
+
+---
+
+### ADR-013 — Code under MIT, data under ODbL 1.0
+**Decision:** Repository code is MIT-licensed ([`LICENSE`](../LICENSE)). Data files derived from MIMIC-III Demo, including the committed files in `output/` and any synthetic data generated from them, stay under the Open Data Commons Open Database License v1.0 ([`DATA_LICENSE.md`](../DATA_LICENSE.md)).
+**Why:** The repo had no license. MIMIC-III Demo v1.4 is published under ODbL 1.0 (verified on its PhysioNet page), and a code license can't relicense a derivative database. Keeping MIT verbatim in `LICENSE` lets GitHub detect it.
+**Impact:** Anyone reusing the code can do so under MIT. Anyone redistributing the data or synthetic output must attribute MIMIC-III Demo and keep ODbL terms.
+**Branch:** `track1-phase1-generator-interface`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
@@ -96,3 +144,19 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Problem:** `schema_and_feature_dictionary.md` listed `D_ICD_DIAGNOSES.csv` as a used source table (for ICD-9 code descriptions), but `preprocess_mimic_demo.py`'s `load_raw()` never loaded it, and no ICD-9 description lookup file existed in `output/`.
 **Fix:** Flagged in code review; fixed in commit `6280b0e` — `D_ICD_DIAGNOSES.csv` is now loaded and written out as `output/icd9_lookup.csv` (14,567 code→description rows).
 **Lesson:** A schema/interface doc and the code it describes can silently drift apart even within the same original commit — worth an explicit check ("does the code actually load every table the doc lists?") as part of reviewing any data-prep deliverable.
+
+---
+
+### P-005 — `icd9_primary` loses its leading zero when read with default `pd.read_csv`
+**Week/Date:** 2026-09-18
+**Problem:** The CSV stores `icd9_primary` correctly as text (`0389`, septicemia), but `pd.read_csv` infers int64 and turns it into `389`, which is a different ICD-9 code. Then `icd9_primary` no longer equals the first element of `icd9_codes` (still strings), and joins against `output/icd9_lookup.csv` miss. It affects 12 of 94 train admissions.
+**Fix:** `generators/schema.load_real()` reads the column with `dtype={"icd9_primary": str}`, and the validator rejects an integer `icd9_primary`. Track 2's scripts read the real and synthetic CSVs the same way, so their categorical comparisons stay consistent. Any code that joins `icd9_primary` to the lookup or compares it to `icd9_codes` needs the `str` dtype.
+**Lesson:** Code columns that look numeric are identifiers, not numbers. Pin their dtype on read, the same way ADR-004 pinned the parser for `icd9_codes`.
+
+---
+
+### P-006 — Track 3's branch didn't follow ADR-006 naming
+**Week/Date:** 2026-09-18
+**Problem:** Track 3's Phase 1 branch was named `track3-data-prep`, missing the phase number required by ADR-006. It was also briefly set as the repository's default branch instead of `main`.
+**Fix:** The default branch was reset to `main`, and the branch was renamed on GitHub to `track3-phase1-data-prep`. It had no open PRs and was already fully merged into `main`. To update a local clone: `git branch -m track3-data-prep track3-phase1-data-prep && git fetch origin && git branch -u origin/track3-phase1-data-prep track3-phase1-data-prep`.
+**Lesson:** Check branch name and default-branch settings when opening the first PR from a track, before other tracks start branching.

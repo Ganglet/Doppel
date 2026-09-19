@@ -30,4 +30,9 @@ LICENSE.txt
 
 __pycache__/
 *.pyc
-.ipynb_checkpoints/python preprocess_mimic_demo.py
+.ipynb_checkpoints/
+.venv/
+.DS_Store
+
+# Track 1: regenerated from the seed, see ADR-008
+output/synthetic/
