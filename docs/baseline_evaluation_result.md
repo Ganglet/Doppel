@@ -1,6 +1,6 @@
 # Baseline Evaluation Result — Track 2 scores Track 1's two baselines over 20 seeds (2026-09-19)
 
-Raw evidence for the first evaluation of real synthetic data through the full Track 2 harness. Reproduce with `python eval_runner.py --generator <name> --seed <n>` for each seed, then `python summarize_results.py`. Each run writes `results/<generator>_seed<n>.json`, which validates against [`contracts/schemas/evaluation_result.schema.json`](../contracts/schemas/evaluation_result.schema.json).
+Raw evidence for the first evaluation of real synthetic data through the full Track 2 harness. Reproduce with `python -m evaluation.eval_runner --generator <name> --seed <n>` for each seed, then `python -m evaluation.summarize_results`. Each run writes `results/<generator>_seed<n>.json`, which validates against [`contracts/schemas/evaluation_result.schema.json`](../contracts/schemas/evaluation_result.schema.json).
 
 ---
 
@@ -14,7 +14,7 @@ What this does not show:
 - **The holdout is very small.** 6 positives, all among the 20 non-Puerto-Rican rows (see [`baseline_generator_result.md`](baseline_generator_result.md)). Utility differences of 0.1 are inside one standard deviation.
 - **The membership numbers depend on which attack is run.** The original attack sees 4 numeric columns and reads 0.51 to 0.52. Attacks on all columns and on ICD-9 code sets read 0.55 to 0.64 and are calibrated against a ceiling and floor in [`membership_calibration_result.md`](membership_calibration_result.md). All are shadow-model AUROCs, a proxy for attacking the real synthetic files.
 - **p-values here are over generator seeds on one fixed dataset and holdout.** They say nothing about a different sample of patients, and the five tests are not corrected for multiple comparisons.
-- **Not reproduced across machines.** Track 1 reports copula seed-42 TSTR of 0.356 (LR) and 0.724 (RF); I get 0.931 and 0.672 for the same seed with the same `utility_eval.py`, and I get the same numbers on rerun. Fidelity agrees closely (JSD 0.0189 vs 0.016). The copula's output depends on the numpy build, traced to `method="eigh"` in its sampler (P-008 and P-009 in [`problems_and_decisions.md`](problems_and_decisions.md)); which numpy Track 1 ran is unconfirmed. My environment is Python 3.11.9, numpy 2.4.6, scikit-learn 1.8.0, scipy 1.17.1.
+- **Not reproduced across machines.** Track 1 reports copula seed-42 TSTR of 0.356 (LR) and 0.724 (RF); I get 0.931 and 0.672 for the same seed with the same `evaluation/utility_eval.py`, and I get the same numbers on rerun. Fidelity agrees closely (JSD 0.0189 vs 0.016). The copula's output depends on the numpy build, traced to `method="eigh"` in its sampler (P-008 and P-009 in [`problems_and_decisions.md`](problems_and_decisions.md)); which numpy Track 1 ran is unconfirmed. My environment is Python 3.11.9, numpy 2.4.6, scikit-learn 1.8.0, scipy 1.17.1.
 
 **Honest phrasing for the report: "the harness runs end to end on real synthetic data and separates a signal-free generator from a dependence-preserving one only weakly; the baselines are not distinguishable on fidelity marginals, borderline on utility, and a 4-column membership attack shows no leak while attacks on all columns and on ICD-9 code sets do (0.58 and 0.64 for the copula)."**
 
@@ -53,7 +53,7 @@ Reading it:
 ## Raw evidence
 
 ```
-$ python summarize_results.py
+$ python -m evaluation.summarize_results
 gaussian_copula  (n_seeds=20)
   mean_js                      0.0189 +/- 0.0013
   corr_diff                    0.1355 +/- 0.0028

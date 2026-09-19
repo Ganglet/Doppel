@@ -1,6 +1,6 @@
 # Fidelity Metrics Result — JS divergence, correlation preservation, and KS checks run and validated (2026-09-17)
 
-Raw evidence that `fidelity_metrics.py` runs end-to-end and produces sane output. Reproduce with `python fidelity_metrics.py` from the repo root.
+Raw evidence that `evaluation/fidelity_metrics.py` runs end-to-end and produces sane output. Reproduce with `python -m evaluation.fidelity_metrics` from the repo root.
 
 ---
 
@@ -34,7 +34,7 @@ Highest-divergence columns (real-vs-real noise, not generator failure):
 ## Raw evidence
 
 ```
-$ python fidelity_metrics.py
+$ python -m evaluation.fidelity_metrics
 Mean JS divergence: 0.1001
 Correlation preservation (mean abs diff): 0.2025
 KS test pass fraction (p >= 0.05): 0.6522

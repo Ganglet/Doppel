@@ -1,6 +1,6 @@
 # Membership Inference Result — shadow-model attack harness correctly separates memorizing from noisy generators (2026-09-17)
 
-Raw evidence for the claim that `membership_inference.py`'s shadow-model attack behaves correctly — i.e. it can actually detect membership leakage when leakage is present, and detect its absence when it isn't. Reproduce with `python membership_inference.py` from the repo root.
+Raw evidence for the claim that `evaluation/membership_inference.py`'s shadow-model attack behaves correctly — i.e. it can actually detect membership leakage when leakage is present, and detect its absence when it isn't. Reproduce with `python -m evaluation.membership_inference` from the repo root.
 
 > **Stand-in run (Phase 1).** This measured real train against real holdout, not a generator. The same metric on real synthetic data is in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) and [`B2_eval_runner.md`](B2_eval_runner.md).
 
@@ -32,7 +32,7 @@ Protocol threshold ([`eval_protocol.md`](../eval_protocol.md)): attack AUROC wit
 ## Raw evidence
 
 ```
-$ python membership_inference.py
+$ python -m evaluation.membership_inference
 Sanity check - memorizing generator (noise_scale=0.0), expect attack AUROC near 1.0:
   mean attack AUROC: 0.8237
 

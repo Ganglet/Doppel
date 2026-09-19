@@ -76,7 +76,7 @@ pass or fail.
 privacy score**: nearest-neighbour distance on 4 numeric columns (`numeric4`), Gower distance over all 53
 features (`gower`), and Jaccard distance on ICD-9 code sets (`icd9_codes`). The 4-column attack alone read
 0.51 to 0.52 for both baselines while the code-set attack reads 0.64, so it cannot be the only attack.
-Every run is read against two calibration anchors from `mia_calibration.py`: an exact-copy generator
+Every run is read against two calibration anchors from `evaluation/mia_calibration.py`: an exact-copy generator
 (ceiling, 1.000) and real rows the generator never saw (floor, 0.49 to 0.50, seed sd about 0.03). Two
 diagnostic attacks (`codes_once`, `codes_repeated`) use train code frequencies an attacker would not have,
 so they locate a leak but are not scored. See
@@ -88,7 +88,7 @@ lists five gaps against the literature (no true-positive rate at low false-posit
 no density-based attack, a stronger attacker than release-only, and wording: an AUROC near 0.5 means the attacks
 found nothing, not that the data is safe).
 
-### Attribute inference (implemented, `attribute_inference.py`)
+### Attribute inference (implemented, `evaluation/attribute_inference.py`)
 An attacker trained on the synthetic data predicts a withheld attribute from every other column. It is
 scored on the real train rows (members) and the real holdout rows (non-members) separately, as balanced
 accuracy minus chance, and the **member gap** (member uplift minus non-member uplift) is the
@@ -112,8 +112,8 @@ scored.
 - Until Track 1 delivers real synthetic data, this protocol is built and self-tested by using the
   real `train` split as a synthetic-data stand-in against the real `holdout` split — same code path,
   swapped input once real generator output exists.
-- Each metric module lives standalone (`fidelity_metrics.py`, `utility_eval.py`,
-  `membership_inference.py`) and can be run independently or imported by the aggregation stage
+- Each metric module lives standalone (`evaluation/fidelity_metrics.py`, `evaluation/utility_eval.py`,
+  `evaluation/membership_inference.py`) and can be run independently or imported by the aggregation stage
   (Track 4).
 
 **Result JSON keys Track 4 should read (2026-09-19):** `metrics.fidelity.mean_js_divergence`,
@@ -125,7 +125,7 @@ The old ethnicity `attribute_inference` block is not scored.
 
 ## 6. Pareto frontier
 
-`pareto.py` reduces each generator to fidelity (mean JS vs train, lower is better), utility (mean TSTR
+`evaluation/pareto.py` reduces each generator to fidelity (mean JS vs train, lower is better), utility (mean TSTR
 AUROC over the two classifiers, higher is better) and privacy (worst-case membership AUROC, lower is
 better), marks generators no other generator dominates, and bootstraps frontier membership over seeds. See
 [`docs/pareto_result.md`](docs/pareto_result.md). It must be rerun when CTGAN/TVAE and the diffusion model

@@ -19,6 +19,8 @@ Full formulas and pass/fail thresholds for fidelity (JS divergence, correlation 
 
 ### Four standalone metric modules
 
+All four are in the `evaluation/` package.
+
 ```
 fidelity_metrics.py        JS divergence (categorical + binned continuous),
                             correlation preservation, KS dimension-wise checks
@@ -36,7 +38,7 @@ Each module runs standalone against `output/mimic_demo_clean.csv` and is importa
 None of these modules could be tested against real synthetic data (Track 1 hasn't started), so every module was built and validated by treating the real `train` split as a placeholder for synthetic data, scored against the real `holdout` split — same interface a real generator's output will use later. This is ADR-005, and it's why every number in the result docs below is explicitly scoped as "validates the code, not a generator."
 
 ### Membership-inference sanity check
-Because a distance-based membership attack has no ground truth to check itself against without a real generator, `membership_inference.py` includes a built-in self-validation: it runs the attack against a deliberately memorizing stand-in generator (`noise_scale=0.0`, exact resampling) and a deliberately noisy one (`noise_scale=0.3`), and the attack AUROC should be — and is — higher for the memorizing one. See [`membership_inference_result.md`](membership_inference_result.md).
+Because a distance-based membership attack has no ground truth to check itself against without a real generator, `evaluation/membership_inference.py` includes a built-in self-validation: it runs the attack against a deliberately memorizing stand-in generator (`noise_scale=0.0`, exact resampling) and a deliberately noisy one (`noise_scale=0.3`), and the attack AUROC should be — and is — higher for the memorizing one. See [`membership_inference_result.md`](membership_inference_result.md).
 
 ---
 
@@ -47,10 +49,10 @@ Because a distance-based membership attack has no ground truth to check itself a
 pip install pandas==2.3.3 numpy scikit-learn==1.8.0 scipy==1.17.1
 
 # Run each metric module on its own (all read output/mimic_demo_clean.csv directly)
-python fidelity_metrics.py
-python utility_eval.py
-python membership_inference.py
-python attribute_inference.py
+python -m evaluation.fidelity_metrics
+python -m evaluation.utility_eval
+python -m evaluation.membership_inference
+python -m evaluation.attribute_inference
 ```
 
 No flags, no config files. Each script's `main()` is the reference invocation. The runner that emits contract JSON is in B2.
@@ -74,10 +76,10 @@ No flags, no config files. Each script's `main()` is the reference invocation. T
 | Output | Value |
 |---|---|
 | Evaluation protocol | [`eval_protocol.md`](../eval_protocol.md) |
-| Fidelity metrics module | `fidelity_metrics.py` |
-| Utility pipeline module | `utility_eval.py` |
-| Membership-inference module | `membership_inference.py` |
-| Attribute-inference module | `attribute_inference.py` |
+| Fidelity metrics module | `evaluation/fidelity_metrics.py` |
+| Utility pipeline module | `evaluation/utility_eval.py` |
+| Membership-inference module | `evaluation/membership_inference.py` |
+| Attribute-inference module | `evaluation/attribute_inference.py` |
 | Downstream utility label | `hospital_expire_flag` |
 | Membership-inference survey | [`membership_inference_survey.md`](membership_inference_survey.md): 18 checked sources, and five gaps against the literature (completed in Phase 2) |
 | Result writeups | [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) (all stand-in runs) |

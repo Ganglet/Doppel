@@ -1,6 +1,6 @@
 # Membership Calibration Result — the 4-column attack missed a leak that ICD-9 codes carry (2026-09-19)
 
-Raw evidence that the membership attack has a known ceiling and floor, and that both baselines leak through ICD-9 codes. Reproduce with `python mia_calibration.py` (about a minute) and `python mia_direct_check.py` (about 20 seconds).
+Raw evidence that the membership attack has a known ceiling and floor, and that both baselines leak through ICD-9 codes. Reproduce with `python -m evaluation.mia_calibration` (about a minute) and `python -m evaluation.mia_direct_check` (about 20 seconds).
 
 ---
 
@@ -88,7 +88,7 @@ Ceiling control (synthetic = exact copy of train): 1.000 for both attacks agains
 ## Raw evidence
 
 ```
-$ python mia_calibration.py
+$ python -m evaluation.mia_calibration
 train ICD-9 codes: 286 seen once, 197 seen 2+ times
 arm                                numeric4              gower         icd9_codes         codes_once     codes_repeated
 exact_copy                  1.000 +/- 0.000    1.000 +/- 0.000    1.000 +/- 0.000    0.992 +/- 0.000    0.995 +/- 0.002
@@ -110,7 +110,7 @@ codes_repeated  gaussian_copula        range 0.602-0.658 | floor range 0.444-0.5
 ```
 
 ```
-$ python mia_direct_check.py
+$ python -m evaluation.mia_direct_check
 1. Target generator (fit on all 94 train rows), mean AUROC [95% bootstrap interval], 20 seeds
    generator              attack           vs all holdout (35)     vs non-PR holdout (20)
    independent_marginals  gower           0.622 [0.519, 0.724]       0.469 [0.346, 0.596]

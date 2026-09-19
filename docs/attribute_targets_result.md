@@ -1,6 +1,6 @@
 # Attribute Inference on Covered Attributes Result — no membership-specific leak found, and the attack can only see memorization here (2026-09-19)
 
-Raw evidence for the attribute-inference attack rerun on three attributes that both splits cover, replacing the ethnicity run in [`attribute_inference_result.md`](attribute_inference_result.md). Reproduce with `python attribute_inference.py` (ceiling control), `python eval_runner.py --generator <name> --seed <n>` for each seed, then `python summarize_results.py`.
+Raw evidence for the attribute-inference attack rerun on three attributes that both splits cover, replacing the ethnicity run in [`attribute_inference_result.md`](attribute_inference_result.md). Reproduce with `python -m evaluation.attribute_inference` (ceiling control), `python -m evaluation.eval_runner --generator <name> --seed <n>` for each seed, then `python -m evaluation.summarize_results`.
 
 ---
 
@@ -55,7 +55,7 @@ What this does not show:
 ## Raw evidence
 
 ```
-$ python attribute_inference.py
+$ python -m evaluation.attribute_inference
 Ceiling control: attacker trained on an exact copy of the members
   target             members   non-mem  uplift(m)  uplift(n)      gap
   gender               1.000     0.380      0.500     -0.120    0.620
@@ -64,7 +64,7 @@ Ceiling control: attacker trained on an exact copy of the members
 ```
 
 ```
-$ python summarize_results.py   (attribute rows only)
+$ python -m evaluation.summarize_results   (attribute rows only)
 gaussian_copula  (n_seeds=20)
   attr_gender_uplift_members   0.0415 +/- 0.0501
   attr_gender_gap              0.0561 +/- 0.1143

@@ -1,6 +1,6 @@
 # Utility Pipeline Result — TRTR/TSTR harness runs and produces AUROC scores (2026-09-17)
 
-Raw evidence that `utility_eval.py`'s train-on-real/test-on-real (TRTR) and train-on-synthetic/test-on-real (TSTR) pipeline works end-to-end. Reproduce with `python utility_eval.py` from the repo root.
+Raw evidence that `evaluation/utility_eval.py`'s train-on-real/test-on-real (TRTR) and train-on-synthetic/test-on-real (TSTR) pipeline works end-to-end. Reproduce with `python -m evaluation.utility_eval` from the repo root.
 
 > **Stand-in run (Phase 1).** This measured real train against real holdout, not a generator. The same metric on real synthetic data is in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) and [`B2_eval_runner.md`](B2_eval_runner.md).
 
@@ -29,7 +29,7 @@ Target: `hospital_expire_flag` (see [`B1_evaluation_pipeline.md`](B1_evaluation_
 ## Raw evidence
 
 ```
-$ python utility_eval.py
+$ python -m evaluation.utility_eval
 TRTR baseline (5-fold CV on real train):
   logistic_regression: 0.5778
   random_forest: 0.7373

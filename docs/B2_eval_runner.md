@@ -16,6 +16,8 @@ Move the Phase 1 metric code from a stand-in dataset to Track 1's real synthetic
 
 ### 1. Evaluation runner and contract JSON
 
+Every script named below lives in the `evaluation/` package and runs from the repo root as `python -m evaluation.<module>`.
+
 ```
 output/synthetic/<generator>_seed<n>.csv   (Track 1, generated on demand if missing)
         |
@@ -26,7 +28,7 @@ output/synthetic/<generator>_seed<n>.csv   (Track 1, generated on demand if miss
 mia_calibration.py, mia_direct_check.py  ---->  results/calibration/mia_calibration.json
 ```
 
-`eval_runner.py` scores one synthetic CSV and validates the result against the schema before writing it. The schema forbids extra top-level keys, so everything sits under `metrics.fidelity`, `metrics.utility` and `metrics.privacy`. `results/` is gitignored and regenerated from the seed, like synthetic CSVs (ADR-014).
+`evaluation/eval_runner.py` scores one synthetic CSV and validates the result against the schema before writing it. The schema forbids extra top-level keys, so everything sits under `metrics.fidelity`, `metrics.utility` and `metrics.privacy`. `results/` is gitignored and regenerated from the seed, like synthetic CSVs (ADR-014).
 
 | Result JSON key | Meaning |
 |---|---|
@@ -39,19 +41,19 @@ mia_calibration.py, mia_direct_check.py  ---->  results/calibration/mia_calibrat
 
 ### 2. Seeds and summaries
 
-Each generator is run over 20 seeds (42 to 61) and reported as mean ± sd (ADR-012). A run takes about 4 seconds because the shadow generators are cached and shared by the three membership attacks. `summarize_results.py` prints every headline metric as mean ± sd per generator.
+Each generator is run over 20 seeds (42 to 61) and reported as mean ± sd (ADR-012). A run takes about 4 seconds because the shadow generators are cached and shared by the three membership attacks. `evaluation/summarize_results.py` prints every headline metric as mean ± sd per generator.
 
 ### 3. Metric fixes and revised thresholds
 
-Track 1 found that `fidelity_metrics.py` scored binary columns as JSD 0 whatever the positive rate, because 10-quantile binning collapses two values into one bin (P-007). Binary columns now use the categorical path and the report covers 52 columns. Two thresholds were dropped because they sit below the noise floor: absolute correlation cutoffs (real train vs holdout already scores 0.203) and "TSTR within 0.10 of TRTR" (seed sd is 0.15 to 0.22). See ADR-015 and [`eval_protocol.md`](../eval_protocol.md).
+Track 1 found that `evaluation/fidelity_metrics.py` scored binary columns as JSD 0 whatever the positive rate, because 10-quantile binning collapses two values into one bin (P-007). Binary columns now use the categorical path and the report covers 52 columns. Two thresholds were dropped because they sit below the noise floor: absolute correlation cutoffs (real train vs holdout already scores 0.203) and "TSTR within 0.10 of TRTR" (seed sd is 0.15 to 0.22). See ADR-015 and [`eval_protocol.md`](../eval_protocol.md).
 
 ### 4. Membership inference made interpretable
 
 | Piece | What it does |
 |---|---|
-| Three attacks in `membership_inference.py` | 4 numeric columns, Gower distance over all 53 features, Jaccard distance on ICD-9 code sets |
-| `mia_calibration.py` | runs every attack against an exact-copy generator (ceiling 1.000), real rows the generator never saw (floor 0.49 to 0.50), and both baselines; also splits codes into once-seen and repeated as a diagnostic |
-| `mia_direct_check.py` | attacks the real synthetic files without shadow models, with bootstrap intervals and a same-distribution half-train diagnostic |
+| Three attacks in `evaluation/membership_inference.py` | 4 numeric columns, Gower distance over all 53 features, Jaccard distance on ICD-9 code sets |
+| `evaluation/mia_calibration.py` | runs every attack against an exact-copy generator (ceiling 1.000), real rows the generator never saw (floor 0.49 to 0.50), and both baselines; also splits codes into once-seen and repeated as a diagnostic |
+| `evaluation/mia_direct_check.py` | attacks the real synthetic files without shadow models, with bootstrap intervals and a same-distribution half-train diagnostic |
 
 The privacy score is the strongest realistic attack (ADR-016). The 4-column attack read 0.51 to 0.52 for both baselines while the code-set attack reads 0.64, and the leak sits in codes seen once in train (0.84 vs 0.62 for repeated codes). The direct check on the real target is consistent with the shadow numbers but its intervals are too wide to confirm them (P-010, P-012).
 
@@ -61,7 +63,7 @@ The ethnicity target was unusable because one class is missing from train (P-003
 
 ### 6. Pareto frontier
 
-`pareto.py` reduces each generator to fidelity (JS, lower), utility (mean TSTR AUROC, higher) and privacy (`membership_worst_case`, lower), marks non-dominated generators, and bootstraps frontier membership and pairwise dominance over seeds (ADR-018). On the two baselines neither dominates the other.
+`evaluation/pareto.py` reduces each generator to fidelity (JS, lower), utility (mean TSTR AUROC, higher) and privacy (`membership_worst_case`, lower), marks non-dominated generators, and bootstraps frontier membership and pairwise dominance over seeds (ADR-018). On the two baselines neither dominates the other.
 
 ### 7. Reproducibility across machines
 
@@ -84,20 +86,20 @@ pip install -r requirements.txt
 
 # Score both baselines over 20 seeds (generates output/synthetic/*.csv if missing)
 for g in gaussian_copula independent_marginals; do
-  for s in $(seq 42 61); do python eval_runner.py --generator $g --seed $s; done
+  for s in $(seq 42 61); do python -m evaluation.eval_runner --generator $g --seed $s; done
 done
 
 # Verify: 40 result files, then mean +/- sd and the Pareto frontier
 ls results/*.json | wc -l
-python summarize_results.py
-python pareto.py
+python -m evaluation.summarize_results
+python -m evaluation.pareto
 
 # Membership attack controls and the direct check
-python mia_calibration.py
-python mia_direct_check.py
+python -m evaluation.mia_calibration
+python -m evaluation.mia_direct_check
 
 # Attribute inference, including the exact-copy ceiling control
-python attribute_inference.py
+python -m evaluation.attribute_inference
 ```
 
 Expected: `40`, then two generators with `n_seeds=20`, then both generators on the frontier with dominance probabilities of 0.01 and 0.00.
@@ -124,10 +126,10 @@ Expected: `40`, then two generators with `n_seeds=20`, then both generators on t
 
 | Output | Value |
 |---|---|
-| Runner and summaries | `eval_runner.py`, `summarize_results.py` |
-| Membership controls | `mia_calibration.py`, `mia_direct_check.py`, output in `results/calibration/mia_calibration.json` |
-| Attribute inference | `attribute_inference.py` (`run_attribute_targets`) |
-| Pareto frontier | `pareto.py` |
+| Runner and summaries | `evaluation/eval_runner.py`, `evaluation/summarize_results.py` |
+| Membership controls | `evaluation/mia_calibration.py`, `evaluation/mia_direct_check.py`, output in `results/calibration/mia_calibration.json` |
+| Attribute inference | `evaluation/attribute_inference.py` (`run_attribute_targets`) |
+| Pareto frontier | `evaluation/pareto.py` |
 | Pinned dependencies | `requirements.txt` (pandas 2.3.3, numpy 2.4.6, scikit-learn 1.8.0, scipy 1.17.1, jsonschema 4.26.0) |
 | Result files | `results/<generator>_seed<n>.json`, 40 files (gitignored) |
 | Baseline evaluation | [`baseline_evaluation_result.md`](baseline_evaluation_result.md): fidelity and utility cannot separate the baselines |

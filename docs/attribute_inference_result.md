@@ -1,6 +1,6 @@
 # Attribute Inference Result — attack ran, and the zero-uplift score traces to a data artifact, not privacy protection (2026-09-17)
 
-Raw evidence for what `attribute_inference.py` actually measured, and why the headline number (0.0000 uplift) is not a valid privacy claim on its own. Reproduce with `python attribute_inference.py` from the repo root.
+Raw evidence for what `evaluation/attribute_inference.py` actually measured, and why the headline number (0.0000 uplift) is not a valid privacy claim on its own. Reproduce with `python -m evaluation.attribute_inference` from the repo root.
 
 > **Stand-in run (Phase 1).** This measured real train against real holdout, not a generator. The same metric on real synthetic data is in [`baseline_evaluation_result.md`](baseline_evaluation_result.md) and [`B2_eval_runner.md`](B2_eval_runner.md).
 
@@ -35,7 +35,7 @@ The result below (0.0000 uplift) looks like a privacy success — the attacker d
 ## Raw evidence
 
 ```
-$ python attribute_inference.py
+$ python -m evaluation.attribute_inference
 Target attribute: ethnicity
 Attacker accuracy: 0.5143
 Base rate accuracy (majority class): 0.5143

@@ -150,6 +150,14 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-019 — Track 2 code lives in an `evaluation/` package
+**Decision:** The nine Track 2 scripts moved from the repo root into `evaluation/`, mirroring `generators/`. They run from the repo root as `python -m evaluation.<module>` and import each other as `from evaluation.<module> import ...`.
+**Why:** The root held nine flat scripts next to every other track's files, while Track 1 already used a package. A package also lets the scripts import each other without path tricks.
+**Impact:** `python eval_runner.py` and the other old commands no longer work. Forward-looking docs (README, protocol, B1, B2, the result docs) now use the new commands. Earlier entries in this log and other tracks' docs keep the old flat paths as written, since this log is append-only. Git records the moves as renames, so file history follows. Before and after the move, regenerated `results/*.json` and `results/calibration/mia_calibration.json` were byte-identical and every script printed the same numbers. `preprocess_mimic_demo.py`, `eval_protocol.md` and `schema_and_feature_dictionary.md` stay at the root because other tracks' docs link to them.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation

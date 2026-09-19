@@ -1,6 +1,6 @@
 # Pareto Frontier Result — the two baselines cannot be ordered on fidelity, utility and privacy (2026-09-19)
 
-Raw evidence that `pareto.py` runs on the contract JSON and what it says about the two Track 1 baselines. Reproduce with `python eval_runner.py --generator <name> --seed <n>` for seeds 42 to 61 for each generator, then `python pareto.py`.
+Raw evidence that `evaluation/pareto.py` runs on the contract JSON and what it says about the two Track 1 baselines. Reproduce with `python -m evaluation.eval_runner --generator <name> --seed <n>` for seeds 42 to 61 for each generator, then `python -m evaluation.pareto`.
 
 ---
 
@@ -52,7 +52,7 @@ What this does not show:
 ## Raw evidence
 
 ```
-$ python pareto.py
+$ python -m evaluation.pareto
 generator                seeds       fidelity JS      utility TSTR   privacy worst MIA  frontier  boot freq
 gaussian_copula             20 0.0189 +/- 0.0013 0.6247 +/- 0.1558   0.6387 +/- 0.0157       yes       1.00
 independent_marginals       20 0.0183 +/- 0.0008 0.4861 +/- 0.1684   0.6380 +/- 0.0156       yes       0.99

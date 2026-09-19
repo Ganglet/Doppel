@@ -86,10 +86,10 @@ Two points from the sources bear directly on this project:
 
 | Doppel component | Literature counterpart | Match |
 |---|---|---|
-| `membership_inference.py` shadow wrapper with leave-one-shadow-out scoring | Shokri et al. [1]; standard for synthetic data per [14]; toolbox in [13] | Same idea, small scale (8 shadow generators) |
+| `evaluation/membership_inference.py` shadow wrapper with leave-one-shadow-out scoring | Shokri et al. [1]; standard for synthetic data per [14]; toolbox in [13] | Same idea, small scale (8 shadow generators) |
 | `numeric4`, `gower`, `icd9_codes` distances | Min-distance membership risk in [18], distance threshold in [17], DCR in [11] | Same family. Gower and code-set Jaccard are my choices for mixed-type and set-valued columns *(my reading)* |
-| `mia_calibration.py` ceiling (exact copy) and floor (unseen real rows) | Calibration in [5] and [9]; the 50% reference in [11] | Same purpose, different construction |
-| `mia_direct_check.py` train vs holdout | Holdout comparison in [11] | Same design. The Doppel holdout differs in distribution from train (15 Puerto Rican admissions, none in train), which is why the same-distribution half-train diagnostic was added |
+| `evaluation/mia_calibration.py` ceiling (exact copy) and floor (unseen real rows) | Calibration in [5] and [9]; the 50% reference in [11] | Same purpose, different construction |
+| `evaluation/mia_direct_check.py` train vs holdout | Holdout comparison in [11] | Same design. The Doppel holdout differs in distribution from train (15 Puerto Rican admissions, none in train), which is why the same-distribution half-train diagnostic was added |
 | `codes_once` vs `codes_repeated` diagnostic | Vulnerable-record identification in [14], underrepresented samples in [12], outliers in [16] | Consistent with all three: records with rare codes are the exposed ones. Not tested against a generator that suppresses rare codes |
 | Attribute attack reporting a member gap | Imputation question in [6] | Direct implementation of the distinction |
 
