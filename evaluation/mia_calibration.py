@@ -8,7 +8,7 @@ split into codes seen once in train vs codes seen at least twice) against
   independent_marginals, gaussian_copula   the two Track 1 baselines
 over 20 seeds, so a generator's score can be read against a known ceiling and floor.
 
-    python mia_calibration.py
+    python -m evaluation.mia_calibration
 """
 
 import json
@@ -19,9 +19,9 @@ from pathlib import Path
 
 import numpy as np
 
-from eval_runner import N_SHADOW, real_generator_fn
+from evaluation.eval_runner import N_SHADOW, real_generator_fn
 from generators import schema as S
-from membership_inference import NUMERIC_COLS, codes_distances, gower_distances, run_membership_inference
+from evaluation.membership_inference import NUMERIC_COLS, codes_distances, gower_distances, run_membership_inference
 
 SEEDS = range(42, 62)
 OUT_PATH = Path("results/calibration/mia_calibration.json")

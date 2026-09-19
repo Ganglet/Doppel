@@ -15,7 +15,7 @@ shadow-model training. Three tables:
 
 The holdout has 15 Puerto Rican admissions absent from train, so "non-PR" drops them.
 
-    python mia_direct_check.py
+    python -m evaluation.mia_direct_check
 """
 
 import warnings
@@ -24,10 +24,10 @@ import numpy as np
 import pandas as pd
 from scipy.stats import rankdata
 
-from eval_runner import real_generator_fn
+from evaluation.eval_runner import real_generator_fn
 from generators import schema as S
 from generators.generate import run
-from membership_inference import codes_distances, gower_distances
+from evaluation.membership_inference import codes_distances, gower_distances
 
 SEEDS = range(42, 62)
 GENERATORS = ("independent_marginals", "gaussian_copula")

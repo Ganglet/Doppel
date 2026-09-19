@@ -11,7 +11,7 @@ A generator is on the frontier if no other generator is at least as good on all 
 strictly better on one. Frontier membership is also bootstrapped over seeds, so a generator that is
 only ahead by seed noise shows up as a low frequency instead of a clean win.
 
-    python pareto.py
+    python -m evaluation.pareto
 """
 
 import json

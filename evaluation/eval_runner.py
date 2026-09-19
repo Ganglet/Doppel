@@ -4,7 +4,7 @@ Doppel - Track 2 evaluation runner.
 Scores one synthetic dataset and writes results/<run_id>.json in the shape of
 contracts/schemas/evaluation_result.schema.json.
 
-    python eval_runner.py --generator gaussian_copula --seed 42
+    python -m evaluation.eval_runner --generator gaussian_copula --seed 42
 """
 
 import argparse
@@ -15,13 +15,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from attribute_inference import run_attribute_inference, run_attribute_targets
-from fidelity_metrics import run_fidelity_report
+from evaluation.attribute_inference import run_attribute_inference, run_attribute_targets
+from evaluation.fidelity_metrics import run_fidelity_report
 from generators import schema as S
 from generators.codec import FrameCodec
 from generators.generate import GENERATORS, run as run_generator
-from membership_inference import NUMERIC_COLS, codes_distances, gower_distances, run_membership_inference
-from utility_eval import utility_gap_report
+from evaluation.membership_inference import NUMERIC_COLS, codes_distances, gower_distances, run_membership_inference
+from evaluation.utility_eval import utility_gap_report
 
 N_SHADOW = 8
 

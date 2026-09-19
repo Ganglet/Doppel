@@ -1,7 +1,7 @@
 """
 Doppel - Track 2: mean and std of every headline metric per generator, over all seeds in results/.
 
-    python summarize_results.py
+    python -m evaluation.summarize_results
 """
 
 import json
