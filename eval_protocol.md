@@ -109,3 +109,19 @@ scored.
 - Each metric module lives standalone (`fidelity_metrics.py`, `utility_eval.py`,
   `membership_inference.py`) and can be run independently or imported by the aggregation stage
   (Track 4).
+
+**Result JSON keys Track 4 should read (2026-09-19):** `metrics.fidelity.mean_js_divergence`,
+`metrics.utility.tstr_auroc.<classifier>`, and `metrics.privacy.membership_worst_case.mean_attack_auroc`
+(the highest mean AUROC over `membership_inference`, `membership_inference_gower` and
+`membership_inference_codes`, with the winning attack named in `.attack`). Do not chart
+`membership_inference` alone: it reads 0.51 to 0.52 for both baselines while the worst case reads 0.64.
+The old ethnicity `attribute_inference` block is not scored.
+
+## 6. Pareto frontier
+
+`pareto.py` reduces each generator to fidelity (mean JS vs train, lower is better), utility (mean TSTR
+AUROC over the two classifiers, higher is better) and privacy (worst-case membership AUROC, lower is
+better), marks generators no other generator dominates, and bootstraps frontier membership over seeds. See
+[`docs/pareto_result.md`](docs/pareto_result.md). It must be rerun when CTGAN/TVAE and the diffusion model
+are added; the current output covers the two baselines only.
+

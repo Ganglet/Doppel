@@ -32,6 +32,7 @@ What this does not show:
 | Membership AUROC, 4 numeric columns | 0.522 ± 0.027 | 0.507 ± 0.034 | 0.121 | protocol band 0.45 to 0.55 |
 | Membership AUROC, Gower (all columns) | 0.583 ± 0.021 | 0.551 ± 0.030 | 0.0004 | floor 0.503 |
 | Membership AUROC, ICD-9 code sets | 0.639 ± 0.016 | 0.638 ± 0.016 | | floor 0.489, fail line 0.65 |
+| Membership worst case (in the results JSON) | 0.639 ± 0.016 | 0.638 ± 0.016 | | the score Track 4 should chart; see [`pareto_result.md`](pareto_result.md) |
 | Attribute inference uplift, ethnicity (superseded) | 0.0000 ± 0.0000 | 0.0000 ± 0.0000 | | see P-003 |
 | Attribute inference, age bucket: member gap | −0.001 ± 0.090 | −0.021 ± 0.083 | | ceiling 0.571 |
 | Attribute inference, first care unit: member gap | 0.009 ± 0.019 | −0.003 ± 0.016 | | ceiling 0.768 |

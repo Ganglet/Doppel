@@ -53,8 +53,9 @@ python mia_direct_check.py
 # Score one synthetic dataset, write results/<generator>_seed<n>.json (contract JSON)
 python eval_runner.py --generator gaussian_copula --seed 42
 
-# Mean +/- sd over every seed in results/
+# Mean +/- sd over every seed in results/, then the Pareto frontier
 python summarize_results.py
+python pareto.py
 
 # Run each metric module on its own (all read output/mimic_demo_clean.csv directly)
 python fidelity_metrics.py
@@ -90,5 +91,6 @@ No flags, no config files — each script's `main()` is the reference invocation
 | Attribute-inference module | `attribute_inference.py` |
 | Evaluation runner (contract JSON) | `eval_runner.py`, `summarize_results.py` |
 | Membership attack calibration | `mia_calibration.py`, `mia_direct_check.py` |
+| Pareto frontier | `pareto.py` |
 | Downstream utility label | `hospital_expire_flag` |
-| Result writeups | [`attribute_targets_result.md`](attribute_targets_result.md), [`membership_calibration_result.md`](membership_calibration_result.md), [`baseline_evaluation_result.md`](baseline_evaluation_result.md), [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |
+| Result writeups | [`pareto_result.md`](pareto_result.md), [`attribute_targets_result.md`](attribute_targets_result.md), [`membership_calibration_result.md`](membership_calibration_result.md), [`baseline_evaluation_result.md`](baseline_evaluation_result.md), [`fidelity_result.md`](fidelity_result.md), [`utility_result.md`](utility_result.md), [`membership_inference_result.md`](membership_inference_result.md), [`attribute_inference_result.md`](attribute_inference_result.md) |

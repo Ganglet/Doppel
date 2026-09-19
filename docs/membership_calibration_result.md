@@ -1,6 +1,6 @@
 # Membership Calibration Result — the 4-column attack missed a leak that ICD-9 codes carry (2026-09-19)
 
-Raw evidence that the membership attack has a known ceiling and floor, and that both baselines leak through ICD-9 codes. Reproduce with `python mia_calibration.py` (about a minute) and `python mia_direct_check.py`.
+Raw evidence that the membership attack has a known ceiling and floor, and that both baselines leak through ICD-9 codes. Reproduce with `python mia_calibration.py` (about a minute) and `python mia_direct_check.py` (about 20 seconds).
 
 ---
 
@@ -24,7 +24,7 @@ What this does not show:
 
 - **The explanation for the leak is supported, not proven.** Codes seen once in train carry the signal, which fits the fact that a generator can only emit codes it saw during fitting, so a non-member's unique code cannot appear in the synthetic data. I did not test a generator that suppresses rare codes.
 - **Neither baseline is meant to be private.** Both sample empirical marginals. The blueprint's 0.50 target applies to the privacy-preserving generators, which don't exist yet.
-- **The direct check on the real synthetic files is confounded and underpowered** (see below), so the shadow-model numbers are the main evidence, and they are a proxy for the protocol's step 4.
+- **These are shadow-model numbers, generators fit on 47 rows.** A direct attack on a generator fit on all 94 rows has no valid non-members (the holdout differs in distribution), so its intervals are wide. The direct check below is consistent with the shadow numbers and cannot confirm them by itself.
 - **Seeds resample the generators, not the patients.** All 40 runs share the same 94 train rows and the same 35-row holdout.
 
 **Honest phrasing for the report: "on a 94-row train set both baselines are separable from non-members mainly through the rare ICD-9 codes they reproduce, at a mean shadow-model AUROC of 0.64 on code sets (individual seeds up to 0.68), while an attack on four numeric columns reads 0.51 to 0.52 and would have wrongly suggested no leak."**
@@ -51,18 +51,37 @@ What this does not show:
 | Dependence modelling makes no difference to the code leak | Copula 0.639 vs independent 0.638 |
 | Where the protocol's bands put this | The old bands were "good" 0.45 to 0.55 and "fail" 0.65 and above. Mean `icd9_codes` is 0.64, and seeds reach 0.667 and 0.676, so it straddles the fail line |
 
-### Direct check on the real synthetic files
+### Direct check on the real synthetic files (with intervals and a shift diagnostic)
 
-Members are the 94 train rows, non-members are holdout rows, and the score is the negative distance to the nearest synthetic row (20 seeds, mean ± sd).
+Score = negative distance to the nearest synthetic row, AUROC of members vs non-members, no shadow models, mean over 20 seeds. Members and non-members are scored in one distance call (see P-012).
 
-| Generator | Attack | vs all holdout (35 rows) | vs non-Puerto-Rican holdout (20 rows) |
+**Target generator, fit on all 94 train rows.** Non-members are holdout rows. Brackets are 95% bootstrap intervals that resample the member and non-member rows, which seed sd cannot capture.
+
+| Generator | Attack | vs all holdout (35) | vs non-PR holdout (20) |
 |---|---|---|---|
-| `independent_marginals` | `gower` | 0.622 ± 0.035 | 0.469 ± 0.043 |
-| `independent_marginals` | `icd9_codes` | 0.519 ± 0.027 | 0.605 ± 0.022 |
-| `gaussian_copula` | `gower` | 0.648 ± 0.022 | 0.492 ± 0.031 |
-| `gaussian_copula` | `icd9_codes` | 0.505 ± 0.038 | 0.603 ± 0.043 |
+| `independent_marginals` | `gower` | 0.622 [0.519, 0.724] | 0.469 [0.346, 0.596] |
+| `independent_marginals` | `icd9_codes` | 0.519 [0.418, 0.618] | 0.605 [0.474, 0.725] |
+| `gaussian_copula` | `gower` | 0.648 [0.555, 0.743] | 0.492 [0.367, 0.624] |
+| `gaussian_copula` | `icd9_codes` | 0.505 [0.415, 0.605] | 0.603 [0.481, 0.716] |
 
-> **Note:** the `gower` column against all holdout rows reads 0.62 to 0.65 but falls to chance once the 15 Puerto Rican rows (absent from train, P-003) are removed, so it measured distribution shift, not membership. The `icd9_codes` figure of about 0.60 on 20 non-members agrees in direction with the shadow result, but 20 non-members leave far more uncertainty than the seed sd shows, since seeds don't resample the non-members. This check does not confirm or refute the shadow-model numbers.
+**Shift diagnostic.** The generator is fit on a random 47-row half of train and its members are that half. The other 47 train rows are non-members from the same distribution.
+
+| Generator | Attack | vs other train half (47) | vs non-PR holdout (20) | vs all holdout (35) |
+|---|---|---|---|---|
+| `independent_marginals` | `gower` | 0.561 | 0.512 | 0.660 |
+| `independent_marginals` | `icd9_codes` | 0.641 | 0.665 | 0.574 |
+| `gaussian_copula` | `gower` | 0.589 | 0.531 | 0.676 |
+| `gaussian_copula` | `icd9_codes` | 0.627 | 0.658 | 0.578 |
+
+Ceiling control (synthetic = exact copy of train): 1.000 for both attacks against both non-member sets.
+
+| Reading | Evidence |
+|---|---|
+| The 15 Puerto Rican rows inflate the Gower score | Against the same-distribution half it reads 0.561 and 0.589; against all holdout rows 0.660 and 0.676, about +0.10 |
+| The code-set attack is not inflated the same way | Same-distribution half 0.641 and 0.627, all holdout 0.574 and 0.578 (lower), non-PR holdout 0.665 and 0.658 |
+| The same-distribution check agrees with the shadow numbers | Gower 0.561 and 0.589 vs 0.551 and 0.583; code sets 0.641 and 0.627 vs 0.638 and 0.639 |
+| The direct check on the real target cannot confirm the leak | Code sets vs non-PR holdout gives 0.605 [0.474, 0.725] and 0.603 [0.481, 0.716], which contains both 0.5 and 0.64. Gower vs non-PR gives 0.469 to 0.492 with intervals containing both 0.5 and the shadow value |
+| Not measured | The AUROC for a generator fit on all 94 rows against valid non-members, because none exist |
 
 ---
 
@@ -92,11 +111,23 @@ codes_repeated  gaussian_copula        range 0.602-0.658 | floor range 0.444-0.5
 
 ```
 $ python mia_direct_check.py
-generator              attack        vs all holdout (35)   vs non-PR holdout (20)
-independent_marginals  gower       0.6217 +/- 0.0353   0.4685 +/- 0.0430
-independent_marginals  icd9_codes  0.5189 +/- 0.0271   0.6049 +/- 0.0219
-gaussian_copula        gower       0.6482 +/- 0.0215   0.4922 +/- 0.0310
-gaussian_copula        icd9_codes  0.5051 +/- 0.0379   0.6032 +/- 0.0427
+1. Target generator (fit on all 94 train rows), mean AUROC [95% bootstrap interval], 20 seeds
+   generator              attack           vs all holdout (35)     vs non-PR holdout (20)
+   independent_marginals  gower           0.622 [0.519, 0.724]       0.469 [0.346, 0.596]
+   independent_marginals  icd9_codes      0.519 [0.418, 0.618]       0.605 [0.474, 0.725]
+   gaussian_copula        gower           0.648 [0.555, 0.743]       0.492 [0.367, 0.624]
+   gaussian_copula        icd9_codes      0.505 [0.415, 0.605]       0.603 [0.481, 0.716]
+
+2. Shift diagnostic (generator fit on a random 47-row half of train), mean AUROC over 20 seeds
+   generator              attack        vs other train half (47)   vs non-PR holdout (20)   vs all holdout (35)
+   independent_marginals  gower                            0.561                    0.512                 0.660
+   independent_marginals  icd9_codes                       0.641                    0.665                 0.574
+   gaussian_copula        gower                            0.589                    0.531                 0.676
+   gaussian_copula        icd9_codes                       0.627                    0.658                 0.578
+
+3. Ceiling control (synthetic = exact copy of train)
+   gower       vs all holdout 1.000 | vs non-PR holdout 1.000
+   icd9_codes  vs all holdout 1.000 | vs non-PR holdout 1.000
 ```
 
 ---

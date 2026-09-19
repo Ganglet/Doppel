@@ -142,6 +142,14 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-018 — The Pareto frontier uses worst-case membership risk and is bootstrapped over seeds
+**Decision:** `pareto.py` uses three axes: mean JS divergence vs train (lower), mean of the two TSTR AUROCs (higher), and `membership_worst_case` (lower, the max over the three realistic membership attacks). A generator is on the frontier if no other is at least as good on all three and strictly better on one. Frontier membership and pairwise dominance are bootstrapped over seeds, and the code-set attack is now in the results JSON.
+**Why:** A single-seed or single-attack frontier can put a signal-free generator on top (ADR-012, ADR-016). Using the worst case stops a weak attack from reading as privacy.
+**Impact:** Track 4 charts these keys, not `membership_inference` alone. Fidelity leaves out correlation, the one fidelity metric that separates the baselines, so a fourth axis may be needed. The whole evaluation, calibration and frontier must be rerun when CTGAN/TVAE and the diffusion model exist.
+**Branch:** `track2-phase2-eval-runner`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
@@ -232,4 +240,12 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Problem:** On `gender`, `independent_marginals` shows a member gap of 0.062 (one-sample p = 0.007) even though it destroys every cross-column relationship and cannot support attribute inference. The copula shows 0.056. The cause is the sets, not the generator: train is 47 F / 47 M and the 35-row holdout is 12 F / 23 M, so balanced accuracy on non-members drops for reasons unrelated to membership. The same set mismatch confounded the direct membership check (P-010).
 **Fix:** None possible without a holdout that matches train. Each generator's gap is read against `independent_marginals` rather than against zero, and the writeup says so.
 **Lesson:** Any "members vs non-members" comparison needs a null arm run through the same two sets. A gap that a no-dependence generator reproduces is a property of the split.
+
+---
+
+### P-012 — Members and non-members were scored on different Gower scales
+**Week/Date:** 2026-09-19
+**Problem:** My rewrite of `mia_direct_check.py` gave Gower AUROCs of 0.816 to 0.833 against 0.62 to 0.65 in the version it replaced, while the code-set numbers matched exactly. That split pointed at the one attack that has a scale. `gower_distances` divides each numeric column by the range of the rows it is given, and the rewrite scored train and holdout in separate calls, so holdout rows were measured on a different scale and looked systematically farther away.
+**Fix:** Score members and non-members in one call (`pooled_scores` in `mia_direct_check.py`), which reproduces the earlier 0.622 and 0.648, and add a comment on `gower_distances`. The shadow-model attack was never affected because it scores one fixed population against each shadow generator.
+**Lesson:** When a rewrite agrees with the old version for one attack and not the other, find what differs before trusting either number. A distance that normalises by its input is only comparable inside one call.
 
