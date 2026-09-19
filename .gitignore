@@ -35,4 +35,4 @@ __pycache__/
 .DS_Store
 
 # Track 1: regenerated from the seed, see ADR-008
-output/synthetic/
+output/synthetic/results/
