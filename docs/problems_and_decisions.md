@@ -158,6 +158,50 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-020 — CTGAN and TVAE run from the `ctgan` library directly, on CPU with one torch thread
+**Decision:** The GAN-family arm wraps `ctgan.CTGAN` and `ctgan.TVAE` (v0.12.1) as `Generator` subclasses in `generators/ctgan_tvae.py`, not SDV's `CTGANSynthesizer`/`TVAESynthesizer`. Training runs on CPU with `torch.set_num_threads(1)`.
+**Why:** SDV's wrappers re-detect column types and apply their own RDT transforms, which would stack a second preprocessing layer on top of the shared codec and break ADR-008. CTGAN's internal mode-specific normalization is part of the method, so that stays. One thread was profiled at 1.5–2.2× faster than eight on these small matrices (CTGAN 100 epochs: 11.7 s vs 17.7 s). A fixed thread count also keeps floating-point reduction order, and so the output, the same on any machine.
+**Impact:** Same seed gives byte-identical CSVs for both models. On 94 rows one epoch is one gradient step (`steps_per_epoch = max(n // batch_size, 1)`), so `epochs` is effectively the step count. `ctgan` and `rdt` are BUSL-1.1 (source-available, non-production use permitted), which is fine for this project but matters if an image bundling them is ever published.
+**Branch:** `track1-phase2-generator-training`
+
+---
+
+### ADR-021 — Model selection happens inside train only: patient folds, DCR memorization, fidelity to the fit rows
+**Decision:** Hyperparameters are compared with `generators/sweep.py`. Train is split into 5 patient-level folds (fixed fold seed, so every generator sees the same folds). For each fold, the generator fits on 4/5 of train. It's scored on fidelity to those fit rows (Track 2's `run_fidelity_report`) and on memorization against the unseen fifth (`generators/diagnostics.py`): the DCR ratio (median distance from synthetic rows to the fit rows, divided by the same for real unseen rows, using Gower distance) and the near-copy rate. Every config is run over several seeds.
+**Why:** The holdout is Track 2's evaluation set (ADR-001), so choosing hyperparameters by holdout score would leak it into the benchmark. Fidelity to the fit rows alone rewards copying, since a generator that copies scores perfectly. DCR against unseen real rows is what separates learning from copying. The diagnostic was calibrated before use: real unseen rows score exactly 1.0 (near-copy 0.059), and exact copies score 0.0 (near-copy 1.0).
+**Impact:** A config only counts if it improves fidelity while keeping `dcr_ratio ≥ 0.95` and `near_copy_rate ≤ 0.10` (twice what real unseen rows score). Sweep outputs go to `output/sweeps/` (regenerated, not committed). The numbers are in [`sweep_result.md`](sweep_result.md).
+**Branch:** `track1-phase2-generator-training`
+
+---
+
+### ADR-022 — Generator output contract reconciled with Track 4's `generator_output.schema.json`
+**Decision:** Manifests written by `generate` carry every field Track 4's schema requires (`run_id`, `generator_name`, `generator_version`, `input_dataset_id`, `output_path`, `output_format`, `num_records`). The schema is amended so the `generator_name` enum matches the real generators, `seed` is required, and the reproducibility fields are declared (`hyperparams`, `train_rows`, `train_csv_sha256`, `codec`, `git_commit`, `created_utc`). `additionalProperties: false` stays.
+**Why:** Validated against the Phase 1 draft schema, every manifest failed. `gaussian_copula` wasn't a permitted name, and the strict schema rejected the seed and training-data hash, which is the information ADR-012 and the blueprint's reproducibility goal depend on. The draft asked all tracks to review before implementation, and cross-track contracts are Track 1's call.
+**Impact:** All four generators' manifests now validate, and a manifest without a seed or with an undeclared field still fails. `input_dataset_id` is content-addressed (`mimic_demo_clean@<sha256[:12]>`), so a change to the cleaned data is visible in every downstream result. The `data/` vs `output/` path mismatch in `contracts/README.md` is left for Tracks 3 and 4. Track 1's CLI takes explicit paths either way.
+**Branch:** `track1-phase2-generator-training`
+
+---
+
+### ADR-023 — Track 1 runs on the team's root pins, plus a neural-extras file
+**Decision:** The copula and `independent_marginals` need nothing beyond the root `requirements.txt` (Track 2's pins, installed by Track 4's `python:3.11-slim` image). `generators/requirements-neural.txt` includes it with `-r ../requirements.txt` and adds torch 2.14.0, ctgan 0.12.1 and rdt 1.22.0 for CTGAN, TVAE and the diffusion model. My earlier separate core file, which pinned numpy 2.5.3, is removed.
+**Why:** numpy 2.5.3 requires Python ≥ 3.12, so my pins would have forced a different image from the rest of the team, and one pipeline should run on one environment. The full neural stack installs and runs on Python 3.11.5 with numpy 2.4.6. After the Cholesky fix (P-013), all four generators give byte-identical output on that environment and on Python 3.12 / numpy 2.5.3, so aligning costs nothing in reproducibility.
+**Impact:** The generator image is Track 4's base image plus `generators/requirements-neural.txt`, with torch from the CPU index on Linux. There's no Python version change. Every Track 1 number from 2026-09-20 on is produced on this environment.
+**Branch:** `track1-phase2-generator-training`
+
+---
+
+### ADR-024 — Initial sweep outcome: the copula leads at this n, CTGAN underfits, TVAE memorizes
+**Decision:** Configs carried into Phase 3: `gaussian_copula` with shrinkage 0.25, and `ctgan` at 300 epochs (least-bad). No `tvae` config passes the memorization guard. TVAE is proposed to Track 2 as the positive control for membership inference.
+**Why:** From 165 fits (11 configs × 3 seeds × 5 patient folds, [`sweep_result.md`](sweep_result.md)):
+- **Copula:** λ = 0.25 gives the best correlation difference of any config that passes the guard (0.119 vs 0.148 for Ledoit-Wolf). Its near-copy rate is 0.021, below the 0.059 that real unseen rows score.
+- **CTGAN:** no epoch count beats the independent-marginals floor on either fidelity metric (JSD 0.103–0.139 vs 0.020, correlation 0.177–0.180 vs 0.175), and longer training makes it worse. The failure sits in the continuous columns, where the hospital-stay median comes out at 11.9 days vs 6.7 real.
+- **TVAE:** 52–71% of rows are near-copies, rising with training. It collapses onto 20 of 65 primary codes, and 34% of its rows reproduce a real patient's key fields.
+
+**Impact:** At 94 training rows, the classical baseline beats both neural generators, and that's the expected small-data result, not a tuning gap. The next sweep tests the obvious counter-argument, that the defaults are too big for 75 rows: smaller CTGAN/TVAE networks, fewer TVAE epochs, and stronger TVAE regularization (`l2scale`), plus copula shrinkage below 0.25. For Track 2, TVAE is a real generator that verifiably memorizes, so an attack that rates TVAE as safe is too weak to trust on the others. The diffusion generator's acceptance bar in [`A2_generator_training.md`](A2_generator_training.md) is the λ = 0.25 copula.
+**Branch:** `track1-phase2-generator-training`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
@@ -257,3 +301,11 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Fix:** Score members and non-members in one call (`pooled_scores` in `mia_direct_check.py`), which reproduces the earlier 0.622 and 0.648, and add a comment on `gower_distances`. The shadow-model attack was never affected because it scores one fixed population against each shadow generator.
 **Lesson:** When a rewrite agrees with the old version for one attack and not the other, find what differs before trusting either number. A distance that normalises by its input is only comparable inside one call.
 
+
+---
+
+### P-013 — Fix for P-008 / P-009 applied: the copula samples through Cholesky, and output is identical across environments
+**Week/Date:** 2026-09-20
+**Problem:** Rayyan's diagnosis in P-009 is right, and the cause is structural rather than a numpy quirk. With 110 modeled columns and 94 rows the sample correlation matrix has rank at most 93, so after Ledoit-Wolf shrinkage exactly d − (n − 1) = 17 of its eigenvalues are identical (all equal to the shrinkage, 0.6676). Inside a repeated eigenvalue's subspace, `eigh` may return any orthonormal basis, and which one it returns depends on the LAPACK build. Reproduced on one machine: perturbing the fitted matrix by 1e-16 (the size of the cross-version difference P-009 measured) changes 99.1% of `eigh` draws, by up to 2.58, and 0.0% of Cholesky draws (max 2.9e-15). My runs used numpy 2.5.3 on Python 3.12, a third build next to Rayyan's 2.4.6 and 2.2.6. That's why the same seed gave 0.356, 0.770 and 0.931.
+**Fix:** `generators/copula.py` samples with `method="cholesky"`, which is unique for a positive-definite matrix. That holds for any shrinkage above 0. All four generators (`gaussian_copula`, `independent_marginals`, `ctgan`, `tvae`) at seed 42 are now byte-identical between Python 3.11.5 / numpy 2.4.6 (the team `requirements.txt` and Docker image) and Python 3.12 / numpy 2.5.3. `independent_marginals` is unchanged by the fix (identity matrix), and every `gaussian_copula` number was regenerated: [`baseline_generator_result.md`](baseline_generator_result.md), [`sweep_result.md`](sweep_result.md), README Results 5–6. The copula's seed-42 TSTR is now 0.695 / 0.819 on every machine, and its 20-seed mean moved from 0.559 / 0.555 to 0.547 / 0.589, with the same conclusion. Track 1 now runs on the team's root pins, and `generators/requirements-neural.txt` adds torch and ctgan on top of them (ADR-023).
+**Lesson:** `eigh` is only reproducible when the eigenvalues are distinct, and a d > n covariance guarantees they aren't. Check reproducibility across two library builds, not just two runs on one machine, which is what Track 2 did and what caught this.

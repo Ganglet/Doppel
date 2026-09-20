@@ -97,10 +97,11 @@ def check_contract(synth: pd.DataFrame, real: pd.DataFrame) -> list[str]:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("path", help="synthetic CSV to check")
+    parser.add_argument("--real-csv", default=S.REAL_CSV, help="cleaned real CSV the generator was trained from")
     args = parser.parse_args(argv)
 
     synth = S.load_real(args.path)
-    errors = check_contract(synth, S.load_real())
+    errors = check_contract(synth, S.load_real(args.real_csv))
     if errors:
         print(f"FAIL  {args.path}")
         for e in errors:

@@ -10,7 +10,8 @@
     "input_dataset_id",
     "output_path",
     "output_format",
-    "num_records"
+    "num_records",
+    "seed"
   ],
   "properties": {
     "run_id": {
@@ -19,7 +20,8 @@
     "generator_name": {
       "type": "string",
       "enum": [
-        "statistical_baseline",
+        "gaussian_copula",
+        "independent_marginals",
         "ctgan",
         "tvae",
         "tabular_diffusion"
@@ -44,6 +46,31 @@
     "num_records": {
       "type": "integer",
       "minimum": 0
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hyperparams": {
+      "type": "object"
+    },
+    "train_rows": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "train_csv_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "codec": {
+      "type": "object"
+    },
+    "git_commit": {
+      "type": "string"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "additionalProperties": false

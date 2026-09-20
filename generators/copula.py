@@ -78,7 +78,10 @@ class GaussianCopula(Generator):
         return self
 
     def sample(self, n, rng):
-        Z = rng.multivariate_normal(np.zeros(len(self.columns)), self.corr, size=n, method="eigh")
+        # Cholesky, not eigh: with d > n the shrunk matrix has d - (n - 1) identical eigenvalues, and eigh's
+        # basis inside that subspace depends on the LAPACK build, so the same seed drew different rows under
+        # different numpy versions (P-008, P-009). The Cholesky factor of a positive-definite matrix is unique.
+        Z = rng.multivariate_normal(np.zeros(len(self.columns)), self.corr, size=n, method="cholesky")
         return pd.DataFrame({c: self.marginals[c].from_normal(Z[:, j]) for j, c in enumerate(self.columns)})
 
     def hyperparams(self):
