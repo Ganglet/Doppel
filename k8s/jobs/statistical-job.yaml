@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: doppel-statistical
+  namespace: doppel
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: doppel-statistical
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: statistical-generator
+          image: doppel/statistical:0.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - generators.generate
+            - --generator
+            - gaussian_copula
+            - --seed
+            - "42"
