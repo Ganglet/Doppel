@@ -14,7 +14,7 @@
 
 Doppel trains three families of synthetic Electronic Health Record generators — a statistical baseline, a GAN-family model (CTGAN/TVAE), and a tabular diffusion model — on the MIMIC-III Clinical Database Demo, then scores each one on the same fidelity, downstream-utility, and privacy-attack protocol so the three are actually comparable instead of three incomparable sets of numbers. **The evaluation harness (fidelity, utility, membership-inference, and attribute-inference code) is built and self-validated end-to-end** — it correctly distinguishes a memorizing stand-in generator (0.824 membership-inference AUROC) from a noisy one (0.663 AUROC) before any real generator exists to test it on.
 
-> **Status:** Phase 1 of 4 (Weeks 1–2 of a 14-week plan). Data engineering and evaluation tracks are done for this phase. Generative modeling has its Phase 1 generator contract and statistical baseline in place, and Kubernetes orchestration has not started. Results 2–4 were produced by running the evaluation code against **real data used as a synthetic-data stand-in**. Result 5 is the first real synthetic data, from the statistical baseline only; CTGAN/TVAE and the diffusion model don't exist yet.
+> **Status:** Phase 1 of 4 (Weeks 1–2 of a 14-week plan). Data engineering and evaluation tracks are done for this phase. Generative modeling has its generator contract, statistical baseline, CTGAN and TVAE in place; the diffusion model is Track 1's Phase 2 build in progress. Results 2–4 were produced by running the evaluation code against **real data used as a synthetic-data stand-in**. Results 5–6 are real synthetic data.
 
 ---
 
@@ -80,7 +80,7 @@ Hospitals want to share patient data for research without violating privacy, and
 | Layer | What it does |
 |---|---|
 | Data Prep (Track 3) | Loads 7 MIMIC-III Demo tables, builds one row per hospital admission (demographics, labs, ICD-9 codes, LOS), splits 80/20 by patient to avoid leakage, and writes a single clean CSV plus two lookup tables. |
-| Generation (Track 1) | Encodes the `train` split into one shared 110-column modeling frame (ICD-9 codes as multi-hot plus a rare-code tail), fits a generator on it, and decodes the samples back to the exact schema of the cleaned CSV. Every output is checked against a written contract before it's saved. The statistical baseline (Gaussian copula) is built; CTGAN/TVAE and the diffusion model come in Phase 2. |
+| Generation (Track 1) | Encodes the `train` split into one shared 110-column modeling frame (ICD-9 codes as multi-hot plus a rare-code tail), fits a generator on it, and decodes the samples back to the exact schema of the cleaned CSV. Every output is checked against a written contract before it's saved. The statistical baseline (Gaussian copula), CTGAN and TVAE are built, and hyperparameters are chosen inside train with a memorization check (DCR). The diffusion model is in progress. |
 | Evaluation (Track 2) | Scores any dataset matching that schema on fidelity (JS divergence, correlation preservation, KS tests), downstream utility (train-on-synthetic/test-on-real AUROC), and privacy (shadow-model membership inference, attribute inference). |
 | Aggregation (Track 4) | *Not built yet.* Will collect all evaluation output and render the fidelity–utility–privacy Pareto frontier on a dashboard. |
 
@@ -147,15 +147,28 @@ Gaussian copula and the independent-marginals reference floor, fit on the 94 tra
 | Arm | Mean JSD vs train | Corr. diff vs train | TSTR AUROC, LR (20 seeds) | TSTR AUROC, RF (20 seeds) |
 |---|---|---|---|---|
 | `independent_marginals` (floor) | 0.017 | 0.160 | 0.468 ± 0.196 | 0.537 ± 0.181 |
-| `gaussian_copula` | 0.016 | 0.139 | 0.559 ± 0.239 | 0.555 ± 0.172 |
+| `gaussian_copula` | 0.016 | 0.132 | 0.547 ± 0.175 | 0.589 ± 0.145 |
 
 > **Honest scope:** both outputs pass the generator contract and reproduce byte for byte from their seed. The copula preserves more correlation than the floor, but its utility lead sits inside a seed-to-seed spread of about 0.2 AUROC. On a single seed, the floor, which has no feature-label signal at all, scored above the TRTR ceiling. That's why generators are reported over seeds (ADR-012). Full writeup, including three caveats on the current metrics: [`docs/baseline_generator_result.md`](docs/baseline_generator_result.md).
+
+### 6. Initial generator sweep (Track 1): memorization vs fidelity, inside train only
+
+165 fits (11 configs × 3 seeds × 5 patient folds). Each generator fits on 4/5 of train and is checked for copying against the unseen fifth. The holdout is never read.
+
+| Generator (best or least-bad config) | DCR ratio (1 = as novel as real) | Near-copy rate (~0.05 = none) | Mean JSD | Corr. diff |
+|---|---|---|---|---|
+| `independent_marginals` (floor) | 1.099 | 0.005 | 0.020 | 0.175 |
+| `gaussian_copula`, λ = 0.25 | 1.037 | 0.021 | 0.020 | **0.119** |
+| `ctgan`, 300 epochs | 1.175 | 0.001 | 0.103 | 0.177 |
+| `tvae`, 300 epochs | **0.719** | **0.519** | 0.117 | 0.134 |
+
+> **Honest scope:** these are selection numbers measured in-sample, not the Phase 3 holdout benchmark. At 94 training rows the copula leads. CTGAN copies nothing but underfits below the independent floor, and TVAE collapses onto a subset of patients, with half its rows near-copies. Full writeup and the failure-mode checks: [`docs/sweep_result.md`](docs/sweep_result.md).
 
 ---
 
 ## Honest limitations
 
-- **Only the statistical baseline exists.** CTGAN/TVAE and the diffusion model are Phase 2 builds. Results 2–4 validate the evaluation code, and Result 5 is the first (baseline-only) synthetic data.
+- **The diffusion generator doesn't exist yet.** The statistical baseline, CTGAN and TVAE are built. The diffusion model is Track 1's in-progress Phase 2 build. Results 2–4 validate the evaluation code, and Results 5–6 are real synthetic data.
 - **The modeling frame is wider than the data.** 110 modeled columns against 94 training rows (d > n) means any flexible generator can memorize the training set.
 - **No orchestration exists yet.** Track 4's Docker/Kubernetes pipeline and dashboard haven't started — the project is currently 6 standalone Python scripts run manually, not the containerized system the blueprint describes.
 - **The demo dataset is small and skewed.** 100 patients produces a train/holdout split where at least one ethnicity category is entirely absent from `train` — this affects attribute-inference validity and will likely affect Track 1's generator training too.
@@ -180,25 +193,30 @@ Gaussian copula and the independent-marginals reference floor, fit on the 94 tra
 │   ├── pareto.py                     #   fidelity / utility / privacy Pareto frontier
 │   ├── mia_calibration.py            #   ceiling and floor controls for the membership attack
 │   └── mia_direct_check.py           #   direct attack on the synthetic files, with intervals
-├── generators/                       # Track 1: generator contract, shared codec, validator, baselines
+├── generators/                       # Track 1: generators, shared codec, contract, model selection
 │   ├── codec.py                      #   real CSV <-> the 110-column modeling frame all generators share
 │   ├── copula.py                     #   Gaussian copula baseline + independent-marginals floor
+│   ├── ctgan_tvae.py                 #   CTGAN and TVAE on the shared modeling frame
+│   ├── diagnostics.py                #   in-train memorization check (patient folds, DCR)
+│   ├── sweep.py                      #   hyperparameter sweep over folds and seeds, in parallel
 │   ├── validate.py                   #   Stage 2 output-contract checker
-│   └── generate.py                   #   Stage 2 entry point (fit, sample, decode, validate, write)
+│   ├── generate.py                   #   Stage 2 entry point (fit, sample, decode, validate, write)
+│   └── requirements-neural.txt       #   root requirements.txt + torch/ctgan for the neural generators
 ├── preprocess_mimic_demo.py          # Track 3: raw MIMIC-III Demo CSVs -> cleaned admission-level dataset
 ├── schema_and_feature_dictionary.md  # Track 3: data schema, feature dictionary, known data-quality issues
 ├── contracts/                        # Track 4: integration contracts and JSON schemas between stages
 ├── docker/                           # Track 4: base image and smoke test
 ├── k8s/                              # Track 4: namespace and smoke-test Job
-├── docs/                             # component docs (A1, B1, B2, C1), result docs, problems_and_decisions.md
+├── docs/                             # component docs (A1, A2, B1, B2, C1), result docs, problems_and_decisions.md
 ├── output/
 │   ├── mimic_demo_clean.csv          # cleaned dataset (129 admissions x 56 cols)
 │   ├── icd9_lookup.csv               # ICD-9 code -> description lookup (14,567 codes)
 │   ├── lab_item_lookup.csv           # lab item ID -> name lookup (top 20 labs)
-│   └── synthetic/                    # generator output + manifests (regenerated from seed, not committed)
+│   ├── synthetic/                    # generator output + manifests (regenerated from seed, not committed)
+│   └── sweeps/                       # sweep tables (regenerated, not committed)
 ├── results/                          # evaluation JSON per generator and seed (regenerated, not committed)
 ├── eval_protocol.md                  # Track 2: fidelity/utility/privacy formulas and thresholds
-├── requirements.txt                  # pinned dependency versions
+├── requirements.txt                  # pinned dependency versions (the Docker image installs this)
 ├── Doppel_Blueprint.pdf              # original project spec: architecture, phases, tracks
 │   (and Doppel_Blueprint.docx)
 ├── LICENSE                           # MIT, for the code
@@ -259,7 +277,7 @@ No cloud resources are in use yet — the pipeline is designed to run entirely o
 | Phase (Weeks) | Track 1 — Generative Modeling | Track 2 — Evaluation | Track 3 — Data Engineering | Track 4 — Systems & Delivery |
 |---|---|---|---|---|
 | Phase 1 (1–2) | ✅ Generator contract, shared codec, validator, statistical baseline | ✅ Protocol defined, task selected | ✅ Cleaned dataset, schema, `.gitignore` | Not started |
-| Phase 2 (3–7) | Not started | ✅ Fidelity/utility/privacy code (self-tested on stand-in data) | — | Not started |
+| Phase 2 (3–7) | ✅ CTGAN/TVAE, in-train model selection (DCR), initial sweep, contract reconciled with Track 4 · diffusion in progress | ✅ Fidelity/utility/privacy code (self-tested on stand-in data) | — | Not started |
 | Phase 3 (8–11) | Not started | Blocked on Track 1 output | — | Not started |
 | Phase 4 (12–14) | Not started | Not started | Not started | Not started |
 
@@ -281,4 +299,6 @@ No cloud resources are in use yet — the pipeline is designed to run entirely o
 - [`eval_protocol.md`](eval_protocol.md) — fidelity/utility/privacy formulas, thresholds, and the ethnicity-split caveat
 - [`docs/A1_generative_modeling.md`](docs/A1_generative_modeling.md) — Track 1: generator contract, modeling frame, ICD-9 encoding, diffusion design, literature review
 - [`docs/baseline_generator_result.md`](docs/baseline_generator_result.md) — first synthetic data: contract self-tests, fidelity, 20-seed utility, metric caveats
+- [`docs/A2_generator_training.md`](docs/A2_generator_training.md) — Track 1 Phase 2: CTGAN/TVAE, in-train model selection, contract reconciliation, diffusion build brief
+- [`docs/sweep_result.md`](docs/sweep_result.md) — initial sweep: memorization vs fidelity for every generator config
 - [`LICENSE`](LICENSE) / [`DATA_LICENSE.md`](DATA_LICENSE.md) — MIT for code, ODbL 1.0 for MIMIC-III-derived data
