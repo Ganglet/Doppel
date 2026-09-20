@@ -1,0 +1,9 @@
+# Track 1 neural generators (ctgan, tvae, and the diffusion model): the team pins plus torch and ctgan.
+# Verified on Python 3.11.5 with the root pins (the Docker image's versions).
+# On Linux, install torch from the CPU index to avoid the multi-GB CUDA wheel:
+#   pip install --extra-index-url https://download.pytorch.org/whl/cpu -r generators/requirements-neural.txt
+# ctgan and its rdt dependency are BUSL-1.1 (source-available, non-production use permitted), not OSI open source.
+-r ../requirements.txt
+torch==2.14.0
+ctgan==0.12.1
+rdt==1.22.0
