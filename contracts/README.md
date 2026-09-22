@@ -66,3 +66,23 @@ Status: `generator_output.schema.json` approved with amendments. Section 1 paths
   `independent_marginals`. CTGAN, TVAE and the diffusion model add `generators/requirements-neural.txt` (torch, ctgan,
   rdt), which was verified on Python 3.11.5 with the root pins. Install torch from the CPU index. No Python version
   change is needed (ADR-023).
+
+  ## 6. Track 3 / Track 4 path decision (2026-09-20)
+
+Section 1's `data/processed/` and `data/synthetic/` paths do not match what Track 1 and Track 3 actually
+implemented. Resolved as follows:
+
+- **Processed dataset lives at `output/mimic_demo_clean.csv`**, not `data/processed/`. Track 3's
+  preprocessing pipeline (`preprocess_mimic_demo.py`) writes here, and this is the path Track 1's
+  `--real-csv` flag and Track 2's evaluation code should point at.
+- **A machine-readable manifest accompanies it** at `output/mimic_demo_clean.manifest.json`, generated
+  by `generate_manifest.py` and validated against `contracts/schemas/dataset.schema.json`. Any
+  track reading the dataset can use this to confirm columns/dtypes without parsing the CSV first.
+- **Synthetic datasets remain at `output/synthetic/`** per Track 1's note above — `data/synthetic/` in
+  Section 1 is superseded.
+- In a Kubernetes Job (see `k8s/jobs/preprocessing-job.yaml`), the raw-data mount path is configurable
+  via the `RAW_DIR` environment variable (defaults to the working directory locally), and output path via
+  `OUT_DIR` (defaults to `./output`) — so the same script runs identically local vs. in-cluster.
+
+Section 1's `data/processed/` and `data/synthetic/` should be treated as superseded by this section; a
+future pass can update Section 1 directly rather than leaving two conflicting statements in this file.

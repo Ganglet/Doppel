@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: doppel-preprocessing
+  namespace: doppel
+  labels:
+    project: doppel
+    component: data-engineering
+    track: track3
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        project: doppel
+        component: data-engineering
+        track: track3
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: preprocessing
+          image: doppel/preprocessing:0.1
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - >
+              python preprocess_mimic_demo.py &&
+              python generate_manifest.py &&
+              python validate_dataset.py
+          env:
+            - name: PROJECT_NAME
+              value: "Doppel"
+          volumeMounts:
+            - name: raw-mimic-data
+              mountPath: /app/raw
+              readOnly: true
+            - name: processed-output
+              mountPath: /app/output
+      volumes:
+        # Raw MIMIC-III demo CSVs — provisioned by whatever volume Track 4's
+        # cluster setup uses (hostPath for local minikube/kind, or a PVC).
+        # NOT baked into the image or committed to git (see .gitignore).
+        - name: raw-mimic-data
+          persistentVolumeClaim:
+            claimName: mimic-raw-data-pvc
+        # Shared output volume so downstream Jobs (Track 1 generation,
+        # Track 2 evaluation) can read output/mimic_demo_clean.csv.
+        - name: processed-output
+          persistentVolumeClaim:
+            claimName: doppel-processed-data-pvc
