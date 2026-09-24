@@ -1,7 +1,7 @@
 {
  "meta": {
-  "generated_utc": "2026-09-24T10:12:45+00:00",
-  "source_commit": "02ce916",
+  "generated_utc": "2026-09-24T10:19:08+00:00",
+  "source_commit": "e7c1a8d",
   "runs": 100,
   "seeds": [
    42,
@@ -819,6 +819,18 @@
   "tvae_vs_gaussian_copula_shrink025_worst_p": 2.0851170285326036e-05,
   "tvae_vs_ctgan_worst_p": 7.587791373729708e-10,
   "tvae_vs_shrink025_utility_p": 0.3183419592845586,
+  "attr_gaussian_copula_gender_p": 0.2570868062708082,
+  "attr_gaussian_copula_first_careunit_p": 0.19336868051342251,
+  "attr_gaussian_copula_age_bucket_p": 0.1464563458673494,
+  "attr_gaussian_copula_shrink025_gender_p": 0.04140765796819742,
+  "attr_gaussian_copula_shrink025_first_careunit_p": 0.3572549125791386,
+  "attr_gaussian_copula_shrink025_age_bucket_p": 0.0048986505554208136,
+  "attr_ctgan_gender_p": 0.21774192035202058,
+  "attr_ctgan_first_careunit_p": 0.7914905845387183,
+  "attr_ctgan_age_bucket_p": 0.6470182574392286,
+  "attr_tvae_gender_p": 0.0003784851883493492,
+  "attr_tvae_first_careunit_p": 0.042446861460311604,
+  "attr_tvae_age_bucket_p": 0.013697376618473263,
   "ctgan_vs_independent_worst_p": 0.8433101895967404,
   "ctgan_vs_independent_utility_p": 0.6136064282691689
  },

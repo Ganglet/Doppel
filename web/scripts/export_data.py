@@ -111,14 +111,20 @@ def welch(a, b):
     return float(ttest_ind(a, b, equal_var=False)[1])
 
 
-def tests(summaries):
+def tests(summaries, runs):
     ps = lambda arm, key: np.array(summaries[arm]["per_seed"][key])
+    gaps = lambda arm, t: np.array([m["privacy"]["attribute_inference_targets"][t]["member_gap"] for m in runs[arm]])
     out = {}
     for other in IDS:
         if other == "tvae":
             continue
         out[f"tvae_vs_{other}_worst_p"] = welch(ps("tvae", "worst"), ps(other, "worst"))
     out["tvae_vs_shrink025_utility_p"] = welch(ps("tvae", "tstr_mean"), ps("gaussian_copula_shrink025", "tstr_mean"))
+    for arm in IDS:
+        if arm == "independent_marginals":
+            continue
+        for t in TARGETS:
+            out[f"attr_{arm}_{t}_p"] = welch(gaps(arm, t), gaps("independent_marginals", t))
     out["ctgan_vs_independent_worst_p"] = welch(ps("ctgan", "worst"), ps("independent_marginals", "worst"))
     out["ctgan_vs_independent_utility_p"] = welch(ps("ctgan", "tstr_mean"), ps("independent_marginals", "tstr_mean"))
     return out
@@ -244,7 +250,7 @@ def main():
         "arms": ARMS,
         "refs": refs_block(summaries),
         "results": summaries,
-        "tests": tests(summaries),
+        "tests": tests(summaries, runs),
         "pareto": pareto_block(),
         "calibration": calibration_block(),
         "coverage": coverage_block(),
