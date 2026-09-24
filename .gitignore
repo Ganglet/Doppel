@@ -38,3 +38,6 @@ __pycache__/
 output/synthetic/
 output/sweeps/
 results/
+
+# Node dependencies (web dashboard)
+node_modules/
