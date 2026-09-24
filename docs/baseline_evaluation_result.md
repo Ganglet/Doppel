@@ -2,6 +2,8 @@
 
 Raw evidence for the first evaluation of real synthetic data through the full Track 2 harness. Reproduce with `python -m evaluation.eval_runner --generator <name> --seed <n>` for each seed, then `python -m evaluation.summarize_results`. Each run writes `results/<generator>_seed<n>.json`, which validates against [`contracts/schemas/evaluation_result.schema.json`](../contracts/schemas/evaluation_result.schema.json).
 
+> **Superseded (2026-09-24):** this covers two baselines only and its fidelity and attribute numbers were distorted by the `icd9_primary` dtype bug (P-014). The five-arm evaluation is in [`full_evaluation_result.md`](full_evaluation_result.md).
+
 ---
 
 ## Method (honest framing)

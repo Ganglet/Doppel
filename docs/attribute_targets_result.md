@@ -2,6 +2,8 @@
 
 Raw evidence for the attribute-inference attack rerun on three attributes that both splits cover, replacing the ethnicity run in [`attribute_inference_result.md`](attribute_inference_result.md). Reproduce with `python -m evaluation.attribute_inference` (ceiling control), `python -m evaluation.eval_runner --generator <name> --seed <n>` for each seed, then `python -m evaluation.summarize_results`.
 
+> **Extended (2026-09-24):** these two baselines showed no member gap. Adding TVAE and the 0.25-shrinkage copula changes that (TVAE gender gap 0.183), see [`full_evaluation_result.md`](full_evaluation_result.md).
+
 ---
 
 ## Method (honest framing)

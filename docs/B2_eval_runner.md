@@ -2,7 +2,7 @@
 
 **Phase:** Phase 2 — Core Development (blueprint Weeks 3–7), started 2026-09-19 on branch `track2-phase2-eval-runner`
 **Owner:** Rayyan (Track 2 / Track B)
-**Status:** In progress. The harness runs end to end on both Track 1 baselines over 20 seeds and writes the contract JSON Track 4 needs. The real comparison is blocked on CTGAN/TVAE and the diffusion model, and every result below has to be rerun when they land. Phase 1 is in [`B1_evaluation_pipeline.md`](B1_evaluation_pipeline.md).
+**Status:** Complete for the two-baseline scope. The five-arm evaluation, positive control and Pareto validation are in [`B3_full_evaluation.md`](B3_full_evaluation.md).
 
 ---
 

@@ -2,6 +2,8 @@
 
 Raw evidence that the membership attack has a known ceiling and floor, and that both baselines leak through ICD-9 codes. Reproduce with `python -m evaluation.mia_calibration` (about a minute) and `python -m evaluation.mia_direct_check` (about 20 seconds).
 
+> **Extended (2026-09-24):** the copula and independent-marginals rows below come from before Track 1's Cholesky fix and the dtype fix. Calibration for seven arms, including the TVAE positive control, is in [`positive_control_result.md`](positive_control_result.md).
+
 ---
 
 ## Method (honest framing)

@@ -2,6 +2,8 @@
 
 Raw evidence that `evaluation/pareto.py` runs on the contract JSON and what it says about the two Track 1 baselines. Reproduce with `python -m evaluation.eval_runner --generator <name> --seed <n>` for seeds 42 to 61 for each generator, then `python -m evaluation.pareto`.
 
+> **Superseded (2026-09-24):** this frontier covers two baselines. The five-arm frontier, with sensitivity checks, is in [`full_pareto_result.md`](full_pareto_result.md).
+
 ---
 
 ## Method (honest framing)
