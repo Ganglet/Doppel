@@ -120,14 +120,40 @@ scored.
 `metrics.utility.tstr_auroc.<classifier>`, and `metrics.privacy.membership_worst_case.mean_attack_auroc`
 (the highest mean AUROC over `membership_inference`, `membership_inference_gower` and
 `membership_inference_codes`, with the winning attack named in `.attack`). Do not chart
-`membership_inference` alone: it reads 0.51 to 0.52 for both baselines while the worst case reads 0.64.
+`membership_inference` alone: it reads 0.50 to 0.52 for every arm while the worst case reads 0.64 to 0.68. Each membership block also carries `tpr_at_fpr_5pct` and `tpr_at_fpr_1pct`.
 The old ethnicity `attribute_inference` block is not scored.
 
 ## 6. Pareto frontier
 
-`evaluation/pareto.py` reduces each generator to fidelity (mean JS vs train, lower is better), utility (mean TSTR
+`evaluation/pareto.py` reduces each arm to fidelity (mean JS vs train, lower is better), utility (mean TSTR
 AUROC over the two classifiers, higher is better) and privacy (worst-case membership AUROC, lower is
-better), marks generators no other generator dominates, and bootstraps frontier membership over seeds. See
-[`docs/pareto_result.md`](docs/pareto_result.md). It must be rerun when CTGAN/TVAE and the diffusion model
-are added; the current output covers the two baselines only.
+better), marks arms no other arm dominates, and bootstraps frontier membership and pairwise dominance over
+seeds. **Validation (Phase 3):** the frontier is recomputed under eight axis choices (a correlation axis, one
+classifier, one attack at a time, no utility axis), and the privacy axis is checked against the TVAE positive
+control. See [`docs/full_pareto_result.md`](docs/full_pareto_result.md). On the current five arms every arm is
+non-dominated, so the frontier shows trade-off directions and does not rank generators. It must be rerun
+when the diffusion model or a retuned generator arrives.
 
+## 7. Generator arms and the positive control (Phase 3)
+
+Arms are defined in `evaluation/arms.py` as a generator plus hyperparameters, and `--generator` takes an arm
+name. The five arms are `independent_marginals` (floor), `gaussian_copula` (Ledoit-Wolf), `gaussian_copula_shrink025`
+(the config Track 1 carried into Phase 3), `ctgan` (300 epochs) and `tvae` (300 epochs). **TVAE is the membership
+and attribute attack's positive control:** Track 1's sweep found it copies 52 to 71% of its rows, so an
+attack that rates it as safe is too weak to trust. On the current run the Gower, ICD-9 and worst-case
+membership attacks and the attribute member gap all rate it most leaky, and the 4-column attack rates it least
+leaky, which is why the 4-column attack is not the privacy score.
+
+Reporting added in Phase 3: pooled true-positive rate at 5% and 1% false-positive rate for every membership
+attack (chance 0.05 and 0.01; closes survey gap 1), and a per-record advantage report in
+`evaluation.mia_calibration` (closes survey gap 2). Two survey gaps stay open: a density-based attack, and a
+release-only attacker.
+
+Operational rules:
+
+- The runner always regenerates the synthetic data for an arm and seed, and shadow-generator fits are cached on
+  disk under `output/synthetic/shadow_cache/` by a key that includes the `generators/` source, so results
+  cannot silently mix old and new generator code (P-015).
+- Neural arms need `generators/requirements-neural.txt` (torch 2.14.0, ctgan 0.12.1, rdt 1.22.0). `ctgan` and
+  `rdt` are BUSL-1.1, source-available and non-production, not OSI open source.
+- Run neural arms with about six workers or fewer. CTGAN is 8.5× slower per fit with six running at once (P-016).

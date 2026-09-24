@@ -24,7 +24,7 @@ What this does not show:
 - **No diffusion model.** It doesn't exist yet, so this is two of the blueprint's three families.
 - **The dataset is tiny.** 94 train rows and a 35-row holdout with 6 positives. Seeds resample the generators, not the patients, and every p-value below is uncorrected and only reflects seed variation.
 - **TVAE's utility is copied signal.** Its TSTR matches the real-data ceiling because it reproduces real training rows, so it should not be read as "TVAE preserves utility well".
-- **Cross-machine reproducibility of the neural arms is only partly checked.** TVAE seed 42 is byte-identical under torch 2.12.0 and 2.14.0 on this machine. Other machines are untested.
+- **Cross-machine reproducibility of the neural arms is only partly checked.** TVAE and CTGAN seed 42 are both byte-identical under torch 2.12.0 and 2.14.0 on this machine. Other machines and other seeds are untested.
 - **Not comparable to the Phase 2 numbers.** Mean JSD dropped from about 0.019 to 0.016 because I fixed a dtype bug that distorted `icd9_primary` (P-014), and the copula's rows are new draws since Track 1's Cholesky fix.
 - **Cost.** One CTGAN fit on 94 rows takes 48 s alone on this laptop but about 6.8 minutes with six running at once, so the 100 runs were slow and CTGAN accounted for most of the time (P-016). Total wall-clock was not timed.
 
