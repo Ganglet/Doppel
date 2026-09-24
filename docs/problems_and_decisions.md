@@ -309,3 +309,28 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Problem:** Rayyan's diagnosis in P-009 is right, and the cause is structural rather than a numpy quirk. With 110 modeled columns and 94 rows the sample correlation matrix has rank at most 93, so after Ledoit-Wolf shrinkage exactly d − (n − 1) = 17 of its eigenvalues are identical (all equal to the shrinkage, 0.6676). Inside a repeated eigenvalue's subspace, `eigh` may return any orthonormal basis, and which one it returns depends on the LAPACK build. Reproduced on one machine: perturbing the fitted matrix by 1e-16 (the size of the cross-version difference P-009 measured) changes 99.1% of `eigh` draws, by up to 2.58, and 0.0% of Cholesky draws (max 2.9e-15). My runs used numpy 2.5.3 on Python 3.12, a third build next to Rayyan's 2.4.6 and 2.2.6. That's why the same seed gave 0.356, 0.770 and 0.931.
 **Fix:** `generators/copula.py` samples with `method="cholesky"`, which is unique for a positive-definite matrix. That holds for any shrinkage above 0. All four generators (`gaussian_copula`, `independent_marginals`, `ctgan`, `tvae`) at seed 42 are now byte-identical between Python 3.11.5 / numpy 2.4.6 (the team `requirements.txt` and Docker image) and Python 3.12 / numpy 2.5.3. `independent_marginals` is unchanged by the fix (identity matrix), and every `gaussian_copula` number was regenerated: [`baseline_generator_result.md`](baseline_generator_result.md), [`sweep_result.md`](sweep_result.md), README Results 5–6. The copula's seed-42 TSTR is now 0.695 / 0.819 on every machine, and its 20-seed mean moved from 0.559 / 0.555 to 0.547 / 0.589, with the same conclusion. Track 1 now runs on the team's root pins, and `generators/requirements-neural.txt` adds torch and ctgan on top of them (ADR-023).
 **Lesson:** `eigh` is only reproducible when the eigenvalues are distinct, and a d > n covariance guarantees they aren't. Check reproducibility across two library builds, not just two runs on one machine, which is what Track 2 did and what caught this.
+
+---
+
+### P-014 — The runner read synthetic CSVs with a plain `pd.read_csv`, so `icd9_primary` lost its leading zero
+**Week/Date:** 2026-09-24 (introduced 2026-09-19)
+**Problem:** Track 1's P-005 says `icd9_primary` must be read as text and that Track 2's scripts already read real and synthetic CSVs that way. My runner didn't: `load_synthetic` used a plain `pd.read_csv`, so `icd9_primary` came back as int64 and codes like `0389` became `389`. On the copula seed-42 file, 17 of 94 rows no longer matched the real column's strings. On that file the `icd9_primary` JSD was 0.284 instead of 0.142 and the mean JSD 0.0186 instead of 0.0158. The same column is a categorical predictor in the attribute attack, so those inputs were mismatched too. Every Phase 2 fidelity and attribute number was affected. Utility was not (the column is dropped) and neither were the membership attacks (shadow generators return decoded frames, not re-read CSVs).
+**Fix:** `load_synthetic` reads through `generators.schema.load_real`, which pins the dtype. Fidelity numbers in [`full_evaluation_result.md`](full_evaluation_result.md) are not comparable to the Phase 2 ones for this reason and because the copula's rows are new draws since P-013.
+**Lesson:** When another track logs an interface trap and says my code already handles it, check my code. I took that sentence on trust.
+
+---
+
+### P-015 — The runner reused a synthetic CSV made by older generator code
+**Week/Date:** 2026-09-24
+**Problem:** `eval_runner` used any existing `output/synthetic/<generator>_seed<n>.csv`. After Track 1's Cholesky fix (P-013) I reran copula seed 42 and the membership score moved from 0.6562 to 0.6486 while fidelity and TSTR did not move at all. The membership attack refits the generator each time, so it used the new code, and the other metrics read the old file. Results were a mix of old and new draws.
+**Fix:** The runner always regenerates into `output/synthetic/eval/<arm>/`. Shadow-generator fits are cached on disk under `output/synthetic/shadow_cache/`, keyed by a hash of `generators/*.py`, the dataset CSV, the hyperparameters, the seed and the exact member rows, so changing any of them refits. Cold and warm cache runs give byte-identical results JSON.
+**Lesson:** A cache needs a key that changes when what it caches changes. Reuse by filename alone is the same failure P-008 was about, one layer up.
+
+---
+
+### P-016 — I killed a working sweep because slow CTGAN looked like a hang
+**Week/Date:** 2026-09-24
+**Problem:** I launched the 100-run sweep with 12 workers. After about 25 minutes there were no results and each worker showed roughly 460 CPU-seconds, so I called it stuck and killed it. It was working. A 94-row CTGAN fit takes 48 s alone but 6.8 minutes with six running together (8.5× slower), so aggregate throughput at six workers is about 70% of running the fits one after another on this machine. The kill cost about 25 minutes.
+**Fix:** Relaunched at 6 workers, added the shadow-fit cache (P-015) so calibration and the direct check reuse the runner's fits instead of refitting CTGAN.
+**Lesson:** Before deciding a job is hung, compare per-process CPU growth against a solo timing and a measured concurrency scaling, since a slow run and a hung run look the same from outside. For CTGAN on this machine, more workers did not help.
+
