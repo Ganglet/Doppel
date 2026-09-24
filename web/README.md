@@ -39,7 +39,7 @@ The Data section shows the generated tables themselves (a preview, column types 
 
 | Path | What it holds |
 |---|---|
-| `src/sections/` | The five page sections |
+| `src/sections/` | The six page sections |
 | `src/charts/` | Dot plot, scatter plot and heatmap, drawn as plain SVG |
 | `src/components/` | Chart card with table view, legend, tooltip, controls |
 | `src/lib/content.js` | Static text: pipeline steps, status matrix, glossary, limits |

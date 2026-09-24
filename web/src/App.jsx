@@ -128,7 +128,7 @@ export default function App() {
           <div className="wrap">
             <div>
               <b>Project Doppel</b> · a course project (Big Data Analysis)
-              <div className="small">Aggregate evaluation metrics only, no patient rows. Code MIT, MIMIC-III-derived data ODbL 1.0.</div>
+              <div className="small">Charts use aggregate metrics only; the Data section shows synthetic tables, never real patient rows. Code MIT, MIMIC-III-derived data ODbL 1.0.</div>
             </div>
             <div className="small">
               Results exported {meta_date(data.meta.generated_utc)} from commit {data.meta.source_commit}
