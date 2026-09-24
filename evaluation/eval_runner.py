@@ -5,6 +5,8 @@ Scores one synthetic dataset and writes results/<run_id>.json in the shape of
 contracts/schemas/evaluation_result.schema.json.
 
     python -m evaluation.eval_runner --generator gaussian_copula --seed 42
+
+`--generator` takes an arm name from evaluation/arms.py (a generator plus its hyperparameters).
 """
 
 import argparse
@@ -15,13 +17,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from evaluation.arms import resolve
 from evaluation.attribute_inference import run_attribute_inference, run_attribute_targets
 from evaluation.fidelity_metrics import run_fidelity_report
-from generators import schema as S
-from generators.codec import FrameCodec
-from generators.generate import GENERATORS, run as run_generator
 from evaluation.membership_inference import NUMERIC_COLS, codes_distances, gower_distances, run_membership_inference
 from evaluation.utility_eval import utility_gap_report
+from generators import schema as S
+from generators.generate import run as run_generator, synthesize
 
 N_SHADOW = 8
 
@@ -41,20 +43,18 @@ def _plain(obj):
     return obj
 
 
-def load_synthetic(generator, seed):
-    path = S.SYNTH_DIR / f"{generator}_seed{seed}.csv"
-    if not path.exists():
-        path = run_generator(generator, seed)
-    return pd.read_csv(path)
+def load_synthetic(arm, seed):
+    # Always regenerate: a cached CSV from older generator code is silently stale (found after Track 1's copula fix).
+    generator, params = resolve(arm)
+    path = run_generator(generator, seed, params=params, out_dir=S.SYNTH_DIR / "eval" / arm)
+    return S.load_real(path)
 
 
-def real_generator_fn(name, min_count=5):
+def real_generator_fn(arm, min_count=5):
+    generator, params = resolve(arm)
+
     def generate(member_df, numeric_cols, n_samples, seed):
-        fit_rng, sample_rng, decode_rng = (np.random.default_rng(s) for s in np.random.SeedSequence(seed).spawn(3))
-        member_df = member_df.reset_index(drop=True)
-        codec = FrameCodec(min_count=min_count).fit(member_df)
-        model = GENERATORS[name]().fit(codec.encode(member_df), codec.spec, fit_rng)
-        return codec.decode(model.sample(n_samples, sample_rng), decode_rng)
+        return synthesize(member_df.reset_index(drop=True), generator, seed, params, n_rows=n_samples, min_count=min_count)[2]
 
     return generate
 
@@ -71,11 +71,11 @@ def cached(generator_fn):
     return generate
 
 
-def evaluate(generator, seed):
+def evaluate(arm, seed):
     real = S.load_real()
     train = real[real[S.SPLIT_COL] == S.TRAIN_SPLIT].reset_index(drop=True)
     holdout = real[real[S.SPLIT_COL] != S.TRAIN_SPLIT].reset_index(drop=True)
-    synth = load_synthetic(generator, seed)
+    synth = load_synthetic(arm, seed)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -83,7 +83,7 @@ def evaluate(generator, seed):
         utility = utility_gap_report(train, holdout, synth)
         attribute = run_attribute_inference(synth, holdout)
         attribute_targets = run_attribute_targets(synth, train, holdout)
-        generator_fn = cached(real_generator_fn(generator))
+        generator_fn = cached(real_generator_fn(arm))
         attacks = {
             "membership_inference": None,
             "membership_inference_gower": gower_distances,
@@ -98,8 +98,8 @@ def evaluate(generator, seed):
         worst = max(membership, key=lambda k: membership[k]["mean_attack_auroc"])
 
     return {
-        "run_id": f"{generator}_seed{seed}",
-        "generator_name": generator,
+        "run_id": f"{arm}_seed{seed}",
+        "generator_name": arm,
         "metrics": _plain({
             "fidelity": fidelity,
             "utility": utility,
