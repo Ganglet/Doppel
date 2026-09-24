@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "export-data": "python scripts/export_data.py"
+    "export-data": "python scripts/export_data.py && python scripts/export_datasets.py"
   },
   "dependencies": {
     "react": "^19.3.0",
