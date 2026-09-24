@@ -15,7 +15,7 @@ import json
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
 
 NUMERIC_COLS = ["age", "los_hospital_days", "los_icu_days", "n_diagnoses"]
@@ -104,7 +104,7 @@ def build_shadow_attack_dataset(
             dists, knn3 = full[:, 0], full[:, :3].mean(axis=1)
 
         for i in range(n_pop):
-            row = {"shadow_id": shadow_id, "min_dist": dists[i], "is_member": int(i in member_idx)}
+            row = {"shadow_id": shadow_id, "record": i, "min_dist": dists[i], "is_member": int(i in member_idx)}
             if knn3 is not None:
                 row["knn3_dist"] = knn3[i]
             rows.append(row)
@@ -112,9 +112,20 @@ def build_shadow_attack_dataset(
     return pd.DataFrame(rows)
 
 
+FPR_LEVELS = {"tpr_at_fpr_5pct": 0.05, "tpr_at_fpr_1pct": 0.01}
+
+
+def record_advantage(attack_df, n_pop):
+    """Per record: mean min-distance when it was a non-member minus when it was a member. Positive means the
+    generator sits closer to the record when it was trained on it. NaN if a record was never on one side."""
+    members = attack_df[attack_df["is_member"] == 1].groupby("record")["min_dist"].mean()
+    others = attack_df[attack_df["is_member"] == 0].groupby("record")["min_dist"].mean()
+    return (others - members).reindex(range(n_pop)).to_numpy()
+
+
 def evaluate_attack(attack_df):
-    aucs = []
-    features = [c for c in attack_df.columns if c not in ("shadow_id", "is_member")]
+    aucs, pooled_labels, pooled_scores = [], [], []
+    features = [c for c in attack_df.columns if c not in ("shadow_id", "record", "is_member")]
     for held_out_shadow in attack_df["shadow_id"].unique():
         train_rows = attack_df[attack_df["shadow_id"] != held_out_shadow]
         test_rows = attack_df[attack_df["shadow_id"] == held_out_shadow]
@@ -123,15 +134,24 @@ def evaluate_attack(attack_df):
         model.fit(train_rows[features], train_rows["is_member"])
         preds = model.predict_proba(test_rows[features])[:, 1]
         aucs.append(roc_auc_score(test_rows["is_member"], preds))
+        pooled_labels.append(test_rows["is_member"].to_numpy())
+        pooled_scores.append(preds)
 
-    return {"mean_attack_auroc": float(np.mean(aucs)), "per_shadow_auroc": aucs}
+    fpr, tpr, _ = roc_curve(np.concatenate(pooled_labels), np.concatenate(pooled_scores))
+    tprs = {name: float(tpr[fpr <= level].max()) for name, level in FPR_LEVELS.items()}
+    return {"mean_attack_auroc": float(np.mean(aucs)), "per_shadow_auroc": aucs, **tprs}
 
 
-def run_membership_inference(population_df, generator_fn, numeric_cols, n_shadow=10, seed=42, distance_fn=None):
+def run_membership_inference(
+    population_df, generator_fn, numeric_cols, n_shadow=10, seed=42, distance_fn=None, return_records=False
+):
     attack_df = build_shadow_attack_dataset(
         population_df, generator_fn, numeric_cols, n_shadow=n_shadow, seed=seed, distance_fn=distance_fn
     )
-    return evaluate_attack(attack_df)
+    result = evaluate_attack(attack_df)
+    if return_records:
+        result["record_advantage"] = record_advantage(attack_df, len(population_df)).tolist()
+    return result
 
 
 def main():
