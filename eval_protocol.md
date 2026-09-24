@@ -141,8 +141,8 @@ name. The five arms are `independent_marginals` (floor), `gaussian_copula` (Ledo
 (the config Track 1 carried into Phase 3), `ctgan` (300 epochs) and `tvae` (300 epochs). **TVAE is the membership
 and attribute attack's positive control:** Track 1's sweep found it copies 52 to 71% of its rows, so an
 attack that rates it as safe is too weak to trust. On the current run the Gower, ICD-9 and worst-case
-membership attacks and the attribute member gap all rate it most leaky, and the 4-column attack rates it least
-leaky, which is why the 4-column attack is not the privacy score.
+membership attacks and the gender attribute member gap all rate it most leaky (on the age target the 0.25-shrinkage
+copula's gap is larger), and the 4-column attack rates it least leaky, which is why the 4-column attack is not the privacy score.
 
 Reporting added in Phase 3: pooled true-positive rate at 5% and 1% false-positive rate for every membership
 attack (chance 0.05 and 0.01; closes survey gap 1), and a per-record advantage report in
