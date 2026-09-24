@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 export function useData(url) {
   const [state, setState] = useState({ data: null, error: null })
   useEffect(() => {
+    if (!url) return
     let live = true
     fetch(url)
       .then((r) => {
@@ -59,19 +60,35 @@ export function useSize() {
   return [ref, size]
 }
 
-export function useScrollSpy(ids) {
+// The section being read is the last one whose top has passed 35% of the way down the window. Sections only
+// exist once the data has loaded, so this waits for `ready` before it starts listening.
+export function useScrollSpy(ids, ready) {
   const [active, setActive] = useState(ids[0])
   useEffect(() => {
-    const els = ids.map((id) => document.getElementById(id)).filter(Boolean)
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)
-        if (visible[0]) setActive(visible[0].target.id)
-      },
-      { rootMargin: '-30% 0px -55% 0px', threshold: [0, 0.2, 0.5] },
-    )
-    els.forEach((el) => io.observe(el))
-    return () => io.disconnect()
-  }, [ids])
+    if (!ready) return
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const line = window.innerHeight * 0.35
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4
+      let current = ids[0]
+      for (const id of ids) {
+        const el = document.getElementById(id)
+        if (el && el.getBoundingClientRect().top <= line) current = id
+      }
+      setActive(atEnd ? ids[ids.length - 1] : current)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    update()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [ids, ready])
   return active
 }
