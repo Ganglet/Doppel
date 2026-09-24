@@ -1,0 +1,288 @@
+{
+  "dataset_id": "mimic_demo_clean",
+  "schema_version": "1.0",
+  "data_path": "output/mimic_demo_clean.csv",
+  "format": "csv",
+  "columns": [
+    {
+      "name": "subject_id",
+      "dtype": "integer",
+      "nullable": false
+    },
+    {
+      "name": "hadm_id",
+      "dtype": "integer",
+      "nullable": false
+    },
+    {
+      "name": "admission_type",
+      "dtype": "string",
+      "nullable": false
+    },
+    {
+      "name": "ethnicity",
+      "dtype": "string",
+      "nullable": false
+    },
+    {
+      "name": "hospital_expire_flag",
+      "dtype": "integer",
+      "nullable": false
+    },
+    {
+      "name": "los_hospital_days",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "los_icu_days",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "first_careunit",
+      "dtype": "string",
+      "nullable": false
+    },
+    {
+      "name": "age",
+      "dtype": "integer",
+      "nullable": false
+    },
+    {
+      "name": "age_89_plus",
+      "dtype": "boolean",
+      "nullable": false
+    },
+    {
+      "name": "gender",
+      "dtype": "string",
+      "nullable": false
+    },
+    {
+      "name": "icd9_primary",
+      "dtype": "integer",
+      "nullable": false
+    },
+    {
+      "name": "n_diagnoses",
+      "dtype": "integer",
+      "nullable": false
+    },
+    {
+      "name": "icd9_codes",
+      "dtype": "string",
+      "nullable": false
+    },
+    {
+      "name": "lab_50868_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50882_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50893_mean",
+      "dtype": "float",
+      "nullable": true
+    },
+    {
+      "name": "lab_50902_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50912_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50931_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50960_mean",
+      "dtype": "float",
+      "nullable": true
+    },
+    {
+      "name": "lab_50970_mean",
+      "dtype": "float",
+      "nullable": true
+    },
+    {
+      "name": "lab_50971_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50983_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51006_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51221_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51222_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51248_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51249_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51250_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51265_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51277_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51279_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51301_mean",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50868_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50882_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50893_abnormal_frac",
+      "dtype": "float",
+      "nullable": true
+    },
+    {
+      "name": "lab_50902_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50912_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50931_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50960_abnormal_frac",
+      "dtype": "float",
+      "nullable": true
+    },
+    {
+      "name": "lab_50970_abnormal_frac",
+      "dtype": "float",
+      "nullable": true
+    },
+    {
+      "name": "lab_50971_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_50983_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51006_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51221_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51222_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51248_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51249_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51250_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51265_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51277_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51279_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "lab_51301_abnormal_frac",
+      "dtype": "float",
+      "nullable": false
+    },
+    {
+      "name": "readmit_30d",
+      "dtype": "integer",
+      "nullable": false
+    },
+    {
+      "name": "split",
+      "dtype": "string",
+      "nullable": false
+    }
+  ]
+}

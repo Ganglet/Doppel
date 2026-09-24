@@ -1,15 +1,23 @@
 """
 Doppel — Track 3 (Data Engineering) preprocessing pipeline.
+
+Ingests raw MIMIC-III Clinical Database Demo CSVs and produces a single
+clean, admission-level tabular dataset for Stage 2 (generation) and
+Stage 3 (evaluation), per schema_and_feature_dictionary.md.
+
+RAW_DIR and OUT_DIR can be overridden via environment variables so this
+script runs identically locally and inside a Kubernetes Job.
 """
 
 import json
+import os
 import pandas as pd
 import numpy as np
 from pathlib import Path
 
-RAW_DIR = Path(".")
-OUT_DIR = Path("./output")
-OUT_DIR.mkdir(exist_ok=True)
+RAW_DIR = Path(os.environ.get("RAW_DIR", "."))
+OUT_DIR = Path(os.environ.get("OUT_DIR", "./output"))
+OUT_DIR.mkdir(exist_ok=True, parents=True)
 
 N_TOP_LABS = 20
 TRAIN_FRAC = 0.8
@@ -28,6 +36,9 @@ def load_raw():
 
 
 def compute_age(patients, admissions):
+    """Age at first admission. MIMIC shifts DOB for 89+ patients ~300 years into
+    the past for de-identification, which overflows plain datetime subtraction —
+    so age is computed from year/month/day components instead, which never overflows."""
     df = admissions[["subject_id", "hadm_id", "admittime"]].merge(
         patients[["subject_id", "dob"]], on="subject_id", how="left"
     )
@@ -64,6 +75,7 @@ def build_admission_base(admissions, icustays):
 
 
 def collapse_ethnicity(series, top_n=6):
+    """Raw ethnicity has 40+ free-text variants; collapse to top N + OTHER."""
     top = series.value_counts().nlargest(top_n).index
     return series.where(series.isin(top), other="OTHER")
 
