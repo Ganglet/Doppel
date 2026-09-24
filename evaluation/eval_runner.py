@@ -10,6 +10,7 @@ contracts/schemas/evaluation_result.schema.json.
 """
 
 import argparse
+import hashlib
 import json
 import warnings
 from pathlib import Path
@@ -50,11 +51,37 @@ def load_synthetic(arm, seed):
     return S.load_real(path)
 
 
-def real_generator_fn(arm, min_count=5):
+def _code_and_data_hash():
+    h = hashlib.sha256()
+    for path in sorted(Path("generators").glob("*.py")):
+        h.update(path.read_bytes())
+    h.update(S.REAL_CSV.read_bytes())
+    return h.hexdigest()
+
+
+def real_generator_fn(arm, min_count=5, disk_cache=True):
+    """Fit `arm` on member_df and sample. Fits are cached on disk under output/synthetic/shadow_cache/, keyed by
+    the generators/ source, the dataset, the arm's hyperparameters, the seed and the exact member rows, so
+    changing any of them refits. This is what lets the runner, the calibration and the direct check share
+    the same shadow generators instead of refitting CTGAN in each."""
     generator, params = resolve(arm)
+    version = _code_and_data_hash() if disk_cache else None
+    cache_dir = S.SYNTH_DIR / "shadow_cache"
 
     def generate(member_df, numeric_cols, n_samples, seed):
-        return synthesize(member_df.reset_index(drop=True), generator, seed, params, n_rows=n_samples, min_count=min_count)[2]
+        member_df = member_df.reset_index(drop=True)
+        if disk_cache:
+            key = hashlib.sha256(json.dumps(
+                [arm, generator, params, seed, n_samples, min_count, member_df["hadm_id"].tolist(), version]
+            ).encode()).hexdigest()[:24]
+            path = cache_dir / f"{arm}_{key}.csv"
+            if path.exists():
+                return S.load_real(path)
+        synth = synthesize(member_df, generator, seed, params, n_rows=n_samples, min_count=min_count)[2]
+        if disk_cache:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            synth.to_csv(path, index=False)
+        return synth
 
     return generate
 
