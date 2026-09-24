@@ -202,6 +202,30 @@ ADRs and Problems are numbered independently and sequentially, oldest first.
 
 ---
 
+### ADR-025 — Track 2 evaluates five named arms, with TVAE as the positive control
+**Decision:** `evaluation/arms.py` defines each evaluated configuration as a generator plus hyperparameters: `independent_marginals`, `gaussian_copula` (Ledoit-Wolf), `gaussian_copula_shrink025`, `ctgan` (300 epochs) and `tvae` (300 epochs). `--generator` takes an arm name. The runner regenerates each arm's data on every run into `output/synthetic/eval/<arm>/`, and shadow generators are fitted with Track 1's `synthesize` and cached on disk under a key made from the `generators/` source, the dataset, the hyperparameters, the seed and the exact member rows.
+**Why:** Track 1 carried the 0.25-shrinkage copula and 300-epoch CTGAN into Phase 3 and proposed TVAE as the membership positive control (ADR-024). A configuration has to be a named, reproducible object for runs to be comparable, and the always-regenerate rule and content-keyed cache stop results mixing generator code versions (P-015).
+**Impact:** `run_id` and `generator_name` in the results JSON are arm names, so Track 4 groups by arm. Evaluating a retuned or new generator is one line in `arms.py`, and everything downstream has to be rerun when Track 1's next sweep changes a config. `ctgan` and `rdt` are BUSL-1.1, source-available and non-production, so the neural arms carry that licence note.
+**Branch:** `track2-phase3-full-evaluation`
+
+---
+
+### ADR-026 — Membership reporting adds pooled TPR at low FPR and a per-record report; a neighbourhood-count attack was tried and dropped
+**Decision:** Every membership attack reports the pooled true-positive rate at 5% and 1% false-positive rate next to its AUROC. `evaluation.mia_calibration` reports each record's attack advantage against its number of once-seen codes. A feature counting synthetic rows in each record's neighbourhood was not added to the attack. The privacy axis of the Pareto frontier stays the worst-case AUROC.
+**Why:** The survey listed both as gaps (Carlini et al. on low false-positive rates, Meeus et al. on vulnerable records). TVAE's AUROC is a moderate 0.68 while its pooled TPR at 1% FPR is 0.058 against a floor of 0.009, so AUROC alone understates that it identifies a few records confidently. The count feature changed AUROC by −0.013 to 0.000 in 3 seeds, so it adds nothing. TPR is not the Pareto axis because the 1% figure rests on about 376 pooled non-members and carries a seed sd of about 0.02.
+**Impact:** Membership blocks in the results JSON carry `tpr_at_fpr_5pct` and `tpr_at_fpr_1pct`. Two survey gaps stay open: a density-based attack and a release-only attacker. Revisit TPR as an axis if a larger dataset gives a stabler estimate.
+**Branch:** `track2-phase3-full-evaluation`
+
+---
+
+### ADR-027 — The Pareto frontier is reported with a sensitivity table and read against the positive control
+**Decision:** `evaluation.pareto` recomputes frontier membership under eight axis sets (a correlation axis, one classifier, one attack at a time, no utility axis) and prints the privacy ordering per attack. A frontier is not reported without that table. This extends ADR-018.
+**Why:** With five arms and seed sds this large every arm is non-dominated, which read alone looks like five wins. The sensitivity table showed TVAE's place depends only on utility (frequency 0.00 without that axis) and that a 4-column privacy axis would make TVAE look safest (0.98).
+**Impact:** Track 4's dashboard should show pairwise dominance probabilities and the sensitivity, not only the frontier set, and the report should not rank generators from the frontier. Rerun when the diffusion model or a retuned generator arrives.
+**Branch:** `track2-phase3-full-evaluation`
+
+---
+
 ## Problems Encountered
 
 ### P-001 — `SimpleImputer` not fitted during utility-pipeline cross-validation
