@@ -100,7 +100,7 @@ Hospitals want to share patient data for research without violating privacy, and
 | Random seed | 42 |
 | `python validate_dataset.py` | `VALIDATION PASSED`, 129 rows, 56 columns, all checks green (run 2026-09-24) |
 
-> **Honest scope:** this is real data, cleaned. The patient-level split is leakage-safe but, on 100 patients, leaves `HISPANIC/LATINO - PUERTO RICAN` at 15 of 35 holdout rows and 0 of 94 train rows, which invalidated the original ethnicity attribute attack. See [`schema_and_feature_dictionary.md`](schema_and_feature_dictionary.md) for the known-issues list.
+> **Honest scope:** this is real data, cleaned. The patient-level split is leakage-safe but, on 100 patients, leaves `HISPANIC/LATINO - PUERTO RICAN` at 15 of 35 holdout rows and 0 of 94 train rows, which invalidated the original ethnicity attribute attack. The validator catches 7 of 7 faults it was designed for but cannot see this kind of gap (P-018). See [`schema_and_feature_dictionary.md`](schema_and_feature_dictionary.md) for the known-issues list and [`docs/dataset_validation_result.md`](docs/dataset_validation_result.md) for the evidence.
 
 ### 2. Generators and in-train model selection (Track 1)
 
@@ -156,7 +156,7 @@ All five arms are on the frontier (bootstrap frequency 0.81 to 0.97, no pairwise
 | Contracts | `generator_output`, `dataset` and `evaluation_result` JSON schemas, and a path decision recorded 2026-09-20 | `generator_output` approved with amendments; `evaluation_result` is loose, with free-form `fidelity`, `utility` and `privacy` objects |
 | Dashboard | 76-line Streamlit app listing `output/synthetic/*.csv` with row counts, column types and the generator manifest | Reads generator manifests only, so it shows none of the evaluation results or the frontier |
 
-> **Honest scope:** there is no evaluation container or Job, no multi-stage pipeline, and no Track 4 write-up in `docs/`. The previous version of this README's Track 4 roadmap entry claimed local and minikube testing, which can't be checked from the repository.
+> **Honest scope:** there is no evaluation container or Job and no multi-stage pipeline. Reading the Job specs against the scripts they run found six gaps, among them a preprocessing Job that would look for the raw data in the wrong directory, undefined volumes, and generator Jobs whose output is lost with the pod (P-017; [`docs/D2_system_integration.md`](docs/D2_system_integration.md)). The previous version of this README's Track 4 roadmap entry claimed local and minikube testing, which can't be checked from the repository.
 
 ---
 
@@ -164,11 +164,12 @@ All five arms are on the frontier (bootstrap frequency 0.81 to 0.97, no pairwise
 
 - **The diffusion model doesn't exist.** Track 1 has a design and a build brief in [`docs/A2_generator_training.md`](docs/A2_generator_training.md), and no `generators/diffusion.py`. Every comparison here covers two of the blueprint's three generator families.
 - **The neural generators are untuned.** CTGAN and TVAE run at Track 1's initial 300-epoch defaults. His next sweep may change them, and Track 2's results must then be rerun.
+- **The dataset validator has a blind spot.** It cannot see categorical levels that appear in the holdout but never in train (P-018).
 - **The dataset is tiny.** 94 training rows against 110 modeled columns (d > n), a 35-row holdout with 6 positives, and one ethnicity class missing from train. Seeds resample generators, not patients, so none of the p-values speak to a different sample of patients.
 - **Utility differences are mostly noise.** TSTR has a seed sd of 0.09 to 0.20, larger than the original "within 0.10 of TRTR" threshold, so utility is reported, not gated.
 - **Attack results are proxies.** They are shadow-model numbers from generators fit on 47 rows, and two survey gaps stay open: a density-based attack and a release-only attacker.
-- **No evaluation stage is containerized or orchestrated,** and no Kubernetes run is documented.
-- **Documentation gaps:** Track 3's `docs/C1_data_engineering.md` still describes Phase 1, and Track 4 has no component doc.
+- **No evaluation stage is containerized or orchestrated,** no Kubernetes run is documented, and the Phase 2 Job specs have six gaps found by static review (P-017). The Docker images and Jobs were never built or run when this was written.
+- **Owner review is pending on three docs.** `docs/C2_data_validation.md`, `docs/D1_kubernetes_env_setup.md` and `docs/D2_system_integration.md` were written by Track 2 from the repository and the checks it ran, not by their owners.
 - **Cost:** a 94-row CTGAN fit takes 48 s alone on the evaluation laptop and about 6.8 minutes with six running together, so the neural arms are slow to evaluate.
 - **The neural dependencies are source-available, not open source.** `ctgan` and `rdt` are BUSL-1.1 (non-production use).
 - **No automated test suite, no CI, no PR template.** Validation is by the validators and calibration scripts, not `pytest`.
@@ -211,7 +212,7 @@ All five arms are on the frontier (bootstrap frequency 0.81 to 0.97, no pairwise
 ├── docker/                           # Track 4: base, preprocessing, statistical, ctgan images and a smoke test
 ├── k8s/                              # Track 4: namespace and Jobs (preprocessing, statistical, ctgan, smoke test)
 ├── dashboard/                        # Track 4: Streamlit scaffold listing generated datasets and manifests
-├── docs/                             # component docs (A1, A2, B1-B3, C1), result docs, survey, problems_and_decisions.md
+├── docs/                             # component docs (A1, A2, B1-B3, C1, C2, D1, D2), result docs, survey, problems_and_decisions.md
 ├── output/
 │   ├── mimic_demo_clean.csv          # cleaned dataset (129 admissions x 56 cols)
 │   ├── mimic_demo_clean.manifest.json  # dataset manifest
@@ -323,9 +324,11 @@ No cloud resources are in use. The pipeline is designed to run on a local Kubern
 ## Documentation index
 
 - [`Doppel_Blueprint.pdf`](Doppel_Blueprint.pdf) — original project spec: architecture, 4 phases, track ownership, success criteria
-- [`docs/problems_and_decisions.md`](docs/problems_and_decisions.md) — running log of architecture decisions (ADR-001 to 027) and problems (P-001 to 016)
+- [`docs/problems_and_decisions.md`](docs/problems_and_decisions.md) — running log of architecture decisions (ADR-001 to 027) and problems (P-001 to 018)
 - [`schema_and_feature_dictionary.md`](schema_and_feature_dictionary.md) — full data schema, feature dictionary, known data-quality issues
-- [`docs/C1_data_engineering.md`](docs/C1_data_engineering.md) — Track 3 component doc (Phase 1) · [`docs/data_pipeline_result.md`](docs/data_pipeline_result.md) — cleaned-dataset evidence
+- [`docs/C1_data_engineering.md`](docs/C1_data_engineering.md), [`docs/C2_data_validation.md`](docs/C2_data_validation.md) — Track 3 component docs (Phases 1 and 2)
+- [`docs/data_pipeline_result.md`](docs/data_pipeline_result.md), [`docs/dataset_validation_result.md`](docs/dataset_validation_result.md) — cleaned-dataset evidence, and validator fault-injection results
+- [`docs/D1_kubernetes_env_setup.md`](docs/D1_kubernetes_env_setup.md), [`docs/D2_system_integration.md`](docs/D2_system_integration.md) — Track 4 component docs (Phases 1 and 2), with static checks
 - [`docs/A1_generative_modeling.md`](docs/A1_generative_modeling.md) — Track 1: generator contract, modeling frame, ICD-9 encoding, diffusion design, literature review
 - [`docs/A2_generator_training.md`](docs/A2_generator_training.md) — Track 1 Phase 2: CTGAN/TVAE, in-train model selection, diffusion build brief
 - [`docs/baseline_generator_result.md`](docs/baseline_generator_result.md) and [`docs/sweep_result.md`](docs/sweep_result.md) — first synthetic data, and the 165-fit sweep

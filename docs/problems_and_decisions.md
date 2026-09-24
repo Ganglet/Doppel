@@ -358,3 +358,25 @@ sklearn.exceptions.NotFittedError: This SimpleImputer instance is not fitted yet
 **Fix:** Relaunched at 6 workers, added the shadow-fit cache (P-015) so calibration and the direct check reuse the runner's fits instead of refitting CTGAN.
 **Lesson:** Before deciding a job is hung, compare per-process CPU growth against a solo timing and a measured concurrency scaling, since a slow run and a hung run look the same from outside. For CTGAN on this machine, more workers did not help.
 
+---
+
+### P-017 — Review of the Phase 2 delivery layer found spec gaps between the Jobs and the code they run (open)
+**Week/Date:** 2026-09-24
+**Problem:** Reading Track 3's and Track 4's Phase 2 files against the scripts they run found six gaps. None was run, because the Docker daemon was not available.
+1. The preprocessing Job sets no `RAW_DIR`, the script's default is the working directory, and the raw data is mounted at `/app/raw`. Under the Job's environment the script fails with `FileNotFoundError: 'PATIENTS.csv'`, which I reproduced locally; with `RAW_DIR=raw` it proceeds.
+2. The volumes the Job names (`mimic-raw-data-pvc`, `doppel-processed-data-pvc`) are not defined anywhere in `k8s/`.
+3. The statistical and CTGAN Jobs mount no volume, so the generated CSV and manifest stay inside the container.
+4. There is no `.dockerignore` and both generator Dockerfiles run `COPY . /app`, so the whole build context goes into the image, including gitignored raw MIMIC files if they are present.
+5. `dashboard/requirements.txt` is unpinned. In a fresh venv it resolved pandas 3.0.6, whose DLL this machine's Application Control policy blocked; the dashboard ran fine with the team's pandas 2.3.3.
+6. The CTGAN Job passes `--param epochs=1`, so it trains one epoch and not the 300-epoch config Track 1 carried into Phase 3.
+**Fix:** None applied; the files belong to Tracks 3 and 4. Proposed: set `RAW_DIR=/app/raw` in the Job, define or document the volumes, mount an output volume in the generator Jobs, add a `.dockerignore` excluding raw CSVs, `output/`, `results/`, `.git` and virtualenvs, and pin the dashboard requirements to the root pins. Details in [`C2_data_validation.md`](C2_data_validation.md) and [`D2_system_integration.md`](D2_system_integration.md).
+**Lesson:** A Job spec and the script it runs each look fine alone, so they have to be checked together, and a delivery layer that has never been run has not been checked at all.
+
+---
+
+### P-018 — The dataset validator cannot see class-coverage gaps between splits (open)
+**Week/Date:** 2026-09-24
+**Problem:** `validate_dataset.py` passes the committed dataset even though `HISPANIC/LATINO - PUERTO RICAN` is in 15 of 35 holdout rows and 0 of 94 train rows, the gap behind P-003. It checks required columns, nulls, JSON, split values, patient leakage and bounds, and nothing about whether categorical levels in the holdout also occur in train. In fault-injection tests it caught 7 of 7 faults it was designed for ([`dataset_validation_result.md`](dataset_validation_result.md)).
+**Fix:** None applied; the file is Track 3's. Proposed: for each categorical column, warn or fail when a holdout level is absent from train, and consider a stratified patient-level split so the main categorical levels appear in both.
+**Lesson:** A validator checks what its author has already been bitten by, so a known-issues list is a source of checks. The ethnicity gap was on Phase 1's list and never became one.
+
