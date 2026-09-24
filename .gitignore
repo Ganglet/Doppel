@@ -40,4 +40,4 @@ output/sweeps/
 results/
 
 # Node dependencies (web dashboard)
-web/node_modules
+web/node_modules/
