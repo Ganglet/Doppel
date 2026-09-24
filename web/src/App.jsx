@@ -1,9 +1,10 @@
-import { Component, useMemo } from 'react'
+import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useData, useScrollSpy, useTheme } from './lib/hooks'
 import Overview from './sections/Overview'
 import Compare from './sections/Compare'
 import Tradeoff from './sections/Tradeoff'
 import Privacy from './sections/Privacy'
+import Datasets from './sections/Datasets'
 import Project from './sections/Project'
 
 const SECTIONS = [
@@ -11,6 +12,7 @@ const SECTIONS = [
   ['compare', 'Compare'],
   ['tradeoffs', 'Trade-offs'],
   ['privacy', 'Privacy'],
+  ['data', 'Data'],
   ['project', 'Project'],
 ]
 
@@ -58,11 +60,42 @@ class Guard extends Component {
   }
 }
 
+// A pill that slides to the section you are reading, and keeps that link in view when the nav scrolls on a phone.
+function Nav({ active }) {
+  const nav = useRef(null)
+  const [pill, setPill] = useState(null)
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = nav.current?.querySelector('[aria-current="true"]')
+      if (!el) return
+      setPill({ x: el.offsetLeft, w: el.offsetWidth })
+      const n = nav.current
+      n.scrollTo({ left: el.offsetLeft - (n.clientWidth - el.offsetWidth) / 2, behavior: 'smooth' })
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [active])
+  return (
+    <nav className="nav" aria-label="Sections" ref={nav}>
+      {pill && <span className="nav-pill" aria-hidden="true" style={{ width: pill.w, transform: `translateX(${pill.x}px)` }} />}
+      {SECTIONS.map(([id, label]) => (
+        <a key={id} href={`#${id}`} aria-current={active === id ? 'true' : undefined}>{label}</a>
+      ))}
+    </nav>
+  )
+}
+
 export default function App() {
   const { data, error } = useData(`${import.meta.env.BASE_URL}data/dashboard.json`)
   const [theme, toggleTheme] = useTheme()
   const ids = useMemo(() => SECTIONS.map((s) => s[0]), [])
-  const active = useScrollSpy(ids)
+  const active = useScrollSpy(ids, Boolean(data))
+
+  // The sections only exist once the data has loaded, so a link like /#data has to scroll afterwards.
+  useEffect(() => {
+    if (data && window.location.hash) document.getElementById(window.location.hash.slice(1))?.scrollIntoView()
+  }, [data])
 
   return (
     <>
@@ -70,11 +103,7 @@ export default function App() {
       <header className="top">
         <div className="wrap">
           <a className="brand" href="#overview"><Logo />Doppel</a>
-          <nav className="nav" aria-label="Sections">
-            {SECTIONS.map(([id, label]) => (
-              <a key={id} href={`#${id}`} aria-current={active === id ? 'true' : undefined}>{label}</a>
-            ))}
-          </nav>
+          <Nav active={active} />
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </div>
       </header>
@@ -88,6 +117,7 @@ export default function App() {
             <Guard><Compare data={data} /></Guard>
             <Guard><Tradeoff data={data} /></Guard>
             <Guard><Privacy data={data} /></Guard>
+            <Guard><Datasets arms={data.arms} /></Guard>
             <Guard><Project data={data} /></Guard>
           </>
         )}
